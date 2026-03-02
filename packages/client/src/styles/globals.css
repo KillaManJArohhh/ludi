@@ -1,0 +1,178 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+@import "tailwindcss";
+
+:root {
+  --board-wood: #8B6914;
+  --board-wood-light: #C4A35A;
+  --board-wood-dark: #5C3D0E;
+  --board-border: #3D2B1F;
+  --gold: #FED100;
+  --gold-dim: #C4A035;
+  --jamaica-green: #009B3A;
+  --jamaica-black: #1a1a1a;
+}
+
+body {
+  margin: 0;
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  background: #0d0805;
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(139, 105, 20, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 50%, rgba(0, 155, 58, 0.05) 0%, transparent 60%),
+    linear-gradient(180deg, #0d0805 0%, #1a0f07 40%, #12080a 100%);
+  color: #f0ece4;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Piece selection glow ─────────────────────────────── */
+@keyframes pulse-glow {
+  0%, 100% { filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 0 2px currentColor); }
+  50% { filter: drop-shadow(0 0 14px currentColor) drop-shadow(0 0 4px currentColor); }
+}
+
+.piece-selectable {
+  cursor: pointer;
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+/* ─── Dice roll animation ──────────────────────────────── */
+@keyframes dice-roll {
+  0% { transform: rotate(0deg) scale(1); }
+  15% { transform: rotate(60deg) scale(1.15); }
+  35% { transform: rotate(180deg) scale(0.92); }
+  55% { transform: rotate(270deg) scale(1.08); }
+  75% { transform: rotate(340deg) scale(0.96); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+.dice-rolling {
+  animation: dice-roll 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ─── Piece movement ───────────────────────────────────── */
+@keyframes piece-move {
+  0% { transform: translateY(0); }
+  40% { transform: translateY(-10px) scale(1.05); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+.piece-moving {
+  animation: piece-move 0.35s ease-out;
+}
+
+/* ─── Capture pop ──────────────────────────────────────── */
+@keyframes capture-pop {
+  0% { transform: scale(1); opacity: 1; }
+  40% { transform: scale(1.6); opacity: 0.6; }
+  100% { transform: scale(0); opacity: 0; }
+}
+
+.piece-captured {
+  animation: capture-pop 0.5s ease-out forwards;
+}
+
+/* ─── Highlight destination squares ────────────────────── */
+@keyframes highlight-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.75; }
+}
+
+.square-highlight {
+  animation: highlight-pulse 1s ease-in-out infinite;
+}
+
+/* ─── Notification fade ────────────────────────────────── */
+@keyframes fade-in {
+  0% { opacity: 0; transform: scale(0.85) translateY(8px); }
+  15% { opacity: 1; transform: scale(1.03) translateY(-2px); }
+  25% { transform: scale(1) translateY(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: scale(0.97) translateY(4px); }
+}
+
+.animate-fade-in {
+  animation: fade-in 2s ease-out forwards;
+}
+
+/* ─── Active player indicator ──────────────────────────── */
+@keyframes active-border {
+  0%, 100% { border-color: rgba(254, 209, 0, 0.3); }
+  50% { border-color: rgba(254, 209, 0, 0.7); }
+}
+
+.active-player {
+  animation: active-border 2s ease-in-out infinite;
+}
+
+/* ─── Button system ────────────────────────────────────── */
+.btn-primary {
+  background: linear-gradient(135deg, #009B3A 0%, #007A2E 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #00B344 0%, #009B3A 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 155, 58, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 155, 58, 0.2);
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, #2a2520 0%, #1e1a16 100%);
+  border: 1px solid rgba(196, 163, 90, 0.2);
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: linear-gradient(135deg, #352f28 0%, #2a2520 100%);
+  border-color: rgba(196, 163, 90, 0.4);
+  transform: translateY(-1px);
+}
+
+/* ─── Glass panel ──────────────────────────────────────── */
+.glass-panel {
+  background: linear-gradient(135deg, rgba(30, 24, 18, 0.9), rgba(20, 16, 12, 0.95));
+  border: 1px solid rgba(196, 163, 90, 0.15);
+  backdrop-filter: blur(12px);
+}
+
+/* ─── Gold text gradient ───────────────────────────────── */
+.text-gold {
+  background: linear-gradient(135deg, #FED100 0%, #C4A035 50%, #FED100 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Custom scrollbar ─────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(196, 163, 90, 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(196, 163, 90, 0.5);
+}

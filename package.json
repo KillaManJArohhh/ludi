@@ -1,0 +1,18 @@
+{
+  "name": "ludi",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/shared",
+    "packages/client",
+    "packages/server"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=packages/client",
+    "dev:server": "npm run dev --workspace=packages/server",
+    "build": "npm run build --workspace=packages/client",
+    "start": "npx tsx packages/server/src/index.ts",
+    "test": "npm run test --workspace=packages/shared",
+    "lint": "echo \"No linter configured yet\""
+  }
+}
