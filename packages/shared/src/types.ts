@@ -66,6 +66,7 @@ export interface GameState {
   players: Player[];
   pieces: Record<string, Piece>;
   currentPlayerIndex: number;
+  currentColorIndex: number;
   turnPhase: TurnPhase;
   diceValues: number[];
   diceRemaining: number[]; // dice values not yet assigned

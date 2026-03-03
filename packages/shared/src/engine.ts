@@ -11,6 +11,7 @@ export function createGameState(config: GameConfig, players: Player[]): GameStat
     players,
     pieces: createInitialPieces(),
     currentPlayerIndex: 0,
+    currentColorIndex: 0,
     turnPhase: 'waiting_for_roll',
     diceValues: [],
     diceRemaining: [],
@@ -207,10 +208,18 @@ function handlePassTurn(state: GameState): GameState {
 }
 
 function advanceTurn(state: GameState): GameState {
-  const nextIndex = (state.currentPlayerIndex + 1) % state.players.length;
+  const nextPlayerIndex = (state.currentPlayerIndex + 1) % state.players.length;
+  // In 2-player mode each player has 2 colors that take separate turns.
+  // Cycle currentColorIndex after all players have had a turn at the current color.
+  let nextColorIndex = state.currentColorIndex;
+  if (nextPlayerIndex === 0) {
+    const maxColors = state.players[0].colors.length;
+    nextColorIndex = (state.currentColorIndex + 1) % maxColors;
+  }
   return {
     ...state,
-    currentPlayerIndex: nextIndex,
+    currentPlayerIndex: nextPlayerIndex,
+    currentColorIndex: nextColorIndex,
     turnPhase: 'waiting_for_roll',
     diceValues: [],
     diceRemaining: [],

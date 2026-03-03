@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import type { GameState, MoveOption } from '@ludi/shared';
-import { selectAIMove, getAIDelay, getCurrentPlayer, COLOR_HEX, getTeamColors, getPiecesByColor } from '@ludi/shared';
+import { selectAIMove, getAIDelay, getCurrentPlayer, COLOR_HEX, getActiveColors, getPiecesByColor } from '@ludi/shared';
 import { audioManager } from '../../services/audioManager.js';
 import LudiBoard from '../board/LudiBoard.js';
 import DiceArea from '../dice/DiceArea.js';
@@ -25,6 +25,7 @@ interface GameScreenProps {
   onPass: () => void;
   onPlayAgain: () => void;
   onHome: () => void;
+  localPlayerId?: string;
 }
 
 export default function GameScreen({
@@ -34,11 +35,13 @@ export default function GameScreen({
   onPass,
   onPlayAgain,
   onHome,
+  localPlayerId,
 }: GameScreenProps) {
   const currentPlayer = getCurrentPlayer(state);
-  const canRoll = state.turnPhase === 'waiting_for_roll' && !currentPlayer.isAI;
-  const canPass = state.turnPhase === 'selecting_piece' && state.moveOptions.length === 0 && !currentPlayer.isAI;
-  const showMoveOptions = state.turnPhase === 'selecting_piece' && state.moveOptions.length > 1 && !currentPlayer.isAI;
+  const isLocalTurn = localPlayerId ? currentPlayer.id === localPlayerId : true;
+  const canRoll = state.turnPhase === 'waiting_for_roll' && !currentPlayer.isAI && isLocalTurn;
+  const canPass = state.turnPhase === 'selecting_piece' && state.moveOptions.length === 0 && !currentPlayer.isAI && isLocalTurn;
+  const showMoveOptions = state.turnPhase === 'selecting_piece' && state.moveOptions.length > 1 && !currentPlayer.isAI && isLocalTurn;
 
   // General notification state
   const [notification, setNotification] = useState<GameNotification | null>(null);
@@ -111,8 +114,9 @@ export default function GameScreen({
     }
   }, [state.lastAction, state.currentPlayerIndex, state.players]);
 
-  // AI turn handling
+  // AI turn handling (skip in online mode — server handles AI)
   useEffect(() => {
+    if (localPlayerId) return;
     if (!currentPlayer.isAI || state.winner) return;
 
     const difficulty = currentPlayer.aiDifficulty || 'medium';
@@ -140,18 +144,19 @@ export default function GameScreen({
       }, delay);
       return () => clearTimeout(timer);
     }
-  }, [currentPlayer, state.turnPhase, state.moveOptions, state.winner, onRoll, onSelectMove, onPass]);
+  }, [localPlayerId, currentPlayer, state.turnPhase, state.moveOptions, state.winner, onRoll, onSelectMove, onPass]);
 
   // Auto-move only when the player has exactly one piece on the board
   // (active on circuit or home stretch — not in base or home) and there's
   // at least one legal move. With only one piece out there's no piece choice.
   useEffect(() => {
     if (currentPlayer.isAI || state.winner) return;
+    if (!isLocalTurn) return;
     if (state.turnPhase !== 'selecting_piece') return;
     if (state.moveOptions.length === 0) return;
 
-    const teamColors = getTeamColors(state, state.currentPlayerIndex);
-    const activePieces = teamColors
+    const activeColors = getActiveColors(state);
+    const activePieces = activeColors
       .flatMap(c => getPiecesByColor(state, c))
       .filter(p => p.state === 'active');
 
@@ -162,7 +167,7 @@ export default function GameScreen({
       onSelectMove(state.moveOptions[0]);
     }, 400);
     return () => clearTimeout(timer);
-  }, [currentPlayer.isAI, state.winner, state.turnPhase, state.moveOptions, onSelectMove]);
+  }, [currentPlayer.isAI, isLocalTurn, state.winner, state.turnPhase, state.moveOptions, onSelectMove]);
 
   const winnerPlayer = state.winner
     ? state.players.find(p => p.id === state.winner)
@@ -184,12 +189,16 @@ export default function GameScreen({
 
       {/* Center: Board + Controls */}
       <div className="flex flex-col items-center gap-4 w-full max-w-[540px]">
-        <TurnIndicator player={currentPlayer} turnCount={state.turnCount} />
+        <TurnIndicator
+          player={currentPlayer}
+          turnCount={state.turnCount}
+          activeColor={currentPlayer.colors.length > 1 ? currentPlayer.colors[state.currentColorIndex] : undefined}
+        />
 
         <LudiBoard
           state={state}
           onSelectMove={onSelectMove}
-          interactive={!currentPlayer.isAI}
+          interactive={!currentPlayer.isAI && isLocalTurn}
         />
 
         {/* Mobile player panels */}

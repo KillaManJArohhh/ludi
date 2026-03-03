@@ -9,6 +9,34 @@ import ChatPanel from '../components/chat/ChatPanel.js';
 
 type Phase = 'lobby' | 'waiting' | 'playing';
 
+const SESSION_KEY = 'ludi_online_session';
+
+interface SessionData {
+  roomCode: string;
+  playerId: string;
+  playerName: string;
+}
+
+function saveSession(data: SessionData) {
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(data));
+}
+
+function loadSession(): SessionData | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (data.roomCode && data.playerId && data.playerName) return data;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function clearSession() {
+  sessionStorage.removeItem(SESSION_KEY);
+}
+
 export default function OnlineGame() {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>('lobby');
@@ -28,6 +56,7 @@ export default function OnlineGame() {
   const [error, setError] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState('');
   const [nameSet, setNameSet] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
 
   const roomCodeRef = useRef(roomCode);
   const playerIdRef = useRef(playerId);
@@ -39,17 +68,46 @@ export default function OnlineGame() {
     connectSocket();
     const socket = getSocket();
 
-    socket.on('room:player_joined', ({ playerName: name, playerCount }) => {
-      setPlayers(prev => {
-        if (prev.some(p => p.name === name)) return prev;
-        return [...prev, {
-          id: `player-${playerCount}`,
-          name,
-          colors: [],
-          isAI: false,
-          isConnected: true,
-        }];
-      });
+    // Attempt reconnection from saved session
+    const saved = loadSession();
+    if (saved) {
+      setReconnecting(true);
+      setPlayerName(saved.playerName);
+      setNameSet(true);
+      socket.emit('player:reconnect', { roomCode: saved.roomCode, playerId: saved.playerId });
+    }
+
+    socket.on('reconnect:success', ({ roomCode: code, gameState: state, players: playerList, status, hostId }: {
+      roomCode: string;
+      gameState: GameState | null;
+      players: Player[];
+      status: string;
+      hostId: string;
+    }) => {
+      const saved = loadSession();
+      if (!saved) return;
+      setRoomCode(code);
+      setPlayerId(saved.playerId);
+      setPlayers(playerList);
+      setIsHost(saved.playerId === hostId);
+      setReconnecting(false);
+      if (status === 'playing' && state) {
+        setGameState(state);
+        setPhase('playing');
+      } else {
+        setPhase('waiting');
+      }
+    });
+
+    socket.on('reconnect:failed', () => {
+      clearSession();
+      setReconnecting(false);
+    });
+
+    socket.on('room:player_joined', ({ players: playerList }: { players: Player[] }) => {
+      if (playerList) {
+        setPlayers(playerList);
+      }
     });
 
     socket.on('game:started', (state: GameState) => {
@@ -67,6 +125,8 @@ export default function OnlineGame() {
     });
 
     return () => {
+      socket.off('reconnect:success');
+      socket.off('reconnect:failed');
       socket.off('room:player_joined');
       socket.off('game:started');
       socket.off('game:state_update');
@@ -77,24 +137,19 @@ export default function OnlineGame() {
 
   const handleCreateRoom = useCallback(() => {
     const socket = getSocket();
-    socket.emit('room:create', { config: gameConfig, playerName }, (response: { roomCode: string; playerId: string }) => {
+    socket.emit('room:create', { config: gameConfig, playerName }, (response: { roomCode: string; playerId: string; players: Player[] }) => {
       setRoomCode(response.roomCode);
       setPlayerId(response.playerId);
       setIsHost(true);
-      setPlayers([{
-        id: response.playerId,
-        name: playerName,
-        colors: [],
-        isAI: false,
-        isConnected: true,
-      }]);
+      setPlayers(response.players);
+      saveSession({ roomCode: response.roomCode, playerId: response.playerId, playerName });
       setPhase('waiting');
     });
   }, [gameConfig, playerName]);
 
   const handleJoinRoom = useCallback((code: string) => {
     const socket = getSocket();
-    socket.emit('room:join', { roomCode: code, playerName }, (response: { roomCode?: string; playerId?: string; error?: string }) => {
+    socket.emit('room:join', { roomCode: code, playerName }, (response: { roomCode?: string; playerId?: string; players?: Player[]; error?: string }) => {
       if (response.error) {
         setError(response.error);
         setTimeout(() => setError(null), 3000);
@@ -103,6 +158,8 @@ export default function OnlineGame() {
       setRoomCode(response.roomCode!);
       setPlayerId(response.playerId!);
       setIsHost(false);
+      if (response.players) setPlayers(response.players);
+      saveSession({ roomCode: response.roomCode!, playerId: response.playerId!, playerName });
       setPhase('waiting');
     });
   }, [playerName]);
@@ -113,6 +170,7 @@ export default function OnlineGame() {
   }, []);
 
   const handleLeaveRoom = useCallback(() => {
+    clearSession();
     disconnectSocket();
     setPhase('lobby');
     setRoomCode('');
@@ -148,6 +206,18 @@ export default function OnlineGame() {
       isPreset,
     });
   }, [playerName]);
+
+  // Reconnecting screen
+  if (reconnecting) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-6">
+        <h2 className="font-[Playfair_Display] text-3xl font-bold text-gold mb-4 tracking-wide">
+          Reconnecting...
+        </h2>
+        <p className="text-[#C4A35A]/50 text-sm">Rejoining your game session</p>
+      </div>
+    );
+  }
 
   // Name entry screen
   if (!nameSet) {
@@ -236,6 +306,7 @@ export default function OnlineGame() {
           onPass={handlePass}
           onPlayAgain={handleLeaveRoom}
           onHome={() => navigate('/')}
+          localPlayerId={playerId}
         />
         <ChatPanel
           messages={chatMessages}

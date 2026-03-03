@@ -32,7 +32,13 @@ export function setupReconnection(io: Server) {
       playerEntry.player.isConnected = true;
 
       socket.join(roomCode);
-      socket.emit('reconnect:success', { gameState: room.gameState });
+      socket.emit('reconnect:success', {
+        roomCode,
+        gameState: room.gameState,
+        players: Array.from(room.players.values()).map(e => e.player),
+        status: room.status,
+        hostId: room.hostId,
+      });
       io.to(roomCode).emit('player:reconnected', { playerId });
     });
 

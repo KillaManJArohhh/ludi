@@ -160,6 +160,17 @@ export function getTeamColors(state: GameState, playerIndex: number): Color[] {
   return state.players[playerIndex].colors;
 }
 
+/** Get the active color(s) for this turn.
+ *  In 2-player mode (each player has 2 colors), returns only the color at currentColorIndex.
+ *  In 4-player mode (each player has 1 color), returns the single color. */
+export function getActiveColors(state: GameState): Color[] {
+  const player = state.players[state.currentPlayerIndex];
+  if (player.colors.length > 1) {
+    return [player.colors[state.currentColorIndex]];
+  }
+  return player.colors;
+}
+
 /** Create a piece ID */
 export function pieceId(color: Color, index: number): string {
   return `${color}-${index}`;

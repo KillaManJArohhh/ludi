@@ -10,6 +10,7 @@ import {
   getPiecesAtCircuit,
   isBlockedByOpponent,
   getTeamColors,
+  getActiveColors,
   getPiecesByColor,
   canEnterHomeStretch,
   pieceName,
@@ -243,11 +244,12 @@ function getSinglePieceMoves(
 export function computeMoveOptions(state: GameState): MoveOption[] {
   const player = state.players[state.currentPlayerIndex];
   const teamColors = getTeamColors(state, state.currentPlayerIndex);
+  const activeColors = getActiveColors(state);
   const diceRemaining = state.diceRemaining;
 
   if (diceRemaining.length === 0) return [];
 
-  const playerPieces = teamColors.flatMap(c => getPiecesByColor(state, c))
+  const playerPieces = activeColors.flatMap(c => getPiecesByColor(state, c))
     .filter(p => p.state !== 'home');
 
   if (playerPieces.length === 0) return [];
@@ -279,7 +281,7 @@ export function computeMoveOptions(state: GameState): MoveOption[] {
       // Apply moveA temporarily to check moveB
       const tempState = applyMoveToState(state, moveA);
 
-      const tempPieces = teamColors.flatMap(c => getPiecesByColor(tempState, c))
+      const tempPieces = activeColors.flatMap(c => getPiecesByColor(tempState, c))
         .filter(p => p.state !== 'home');
 
       let foundSecondMove = false;
@@ -319,7 +321,7 @@ export function computeMoveOptions(state: GameState): MoveOption[] {
         if (!moveA) continue;
 
         const tempState = applyMoveToState(state, moveA);
-        const tempPieces = teamColors.flatMap(c => getPiecesByColor(tempState, c))
+        const tempPieces = activeColors.flatMap(c => getPiecesByColor(tempState, c))
           .filter(p => p.state !== 'home');
 
         let foundSecondMove = false;
@@ -370,8 +372,8 @@ export function computeMoveOptions(state: GameState): MoveOption[] {
 
     // Block movement on doubles
     if (isDouble) {
-      // Find blocks (2+ same-color pieces at same position)
-      const blockPositions = findBlocks(state, teamColors);
+      // Find blocks (2+ same-color pieces at same position) — only among active colors
+      const blockPositions = findBlocks(state, activeColors);
       for (const { pos, color, pieceIds } of blockPositions) {
         // Move block as a unit (can capture opponent blocks)
         const representative = state.pieces[pieceIds[0]];
