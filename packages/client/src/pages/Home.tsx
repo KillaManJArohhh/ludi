@@ -54,6 +54,13 @@ export default function Home() {
         </button>
 
         <button
+          onClick={() => navigate('/rules')}
+          className="btn-secondary py-4 rounded-xl text-[#C4A35A] font-semibold text-base tracking-wide"
+        >
+          How to Play
+        </button>
+
+        <button
           onClick={() => navigate('/stats')}
           className="py-3 rounded-xl text-[#C4A35A]/50 font-medium text-sm tracking-wide
                      hover:text-[#C4A35A]/80 transition-colors"

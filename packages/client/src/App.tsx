@@ -3,6 +3,7 @@ import Home from './pages/Home.js';
 import LocalGame from './pages/LocalGame.js';
 import OnlineGame from './pages/OnlineGame.js';
 import Stats from './pages/Stats.js';
+import Rules from './pages/Rules.js';
 
 export default function App() {
   return (
@@ -11,6 +12,7 @@ export default function App() {
       <Route path="/local" element={<LocalGame />} />
       <Route path="/online" element={<OnlineGame />} />
       <Route path="/stats" element={<Stats />} />
+      <Route path="/rules" element={<Rules />} />
     </Routes>
   );
 }

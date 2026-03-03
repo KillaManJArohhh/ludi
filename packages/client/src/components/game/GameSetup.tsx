@@ -59,7 +59,7 @@ export default function GameSetup({ onStart, onBack }: GameSetupProps) {
 
       {/* Player Count */}
       <div className="mb-5">
-        <label className="block text-[11px] text-[#C4A35A]/50 mb-2 font-medium tracking-wide uppercase">
+        <label className="block text-xs text-[#C4A35A]/80 mb-2 font-semibold tracking-wide uppercase">
           Players
         </label>
         <div className="flex gap-2">
@@ -70,7 +70,7 @@ export default function GameSetup({ onStart, onBack }: GameSetupProps) {
               className={`flex-1 py-2.5 rounded-lg font-semibold text-sm transition-all
                 ${playerCount === n
                   ? 'btn-primary text-white'
-                  : 'bg-white/[0.04] text-[#C4A35A]/50 border border-white/[0.06] hover:bg-white/[0.08] hover:text-[#C4A35A]/70'
+                  : 'bg-white/[0.08] text-[#f0ece4]/70 border border-[#C4A35A]/25 hover:bg-white/[0.12] hover:text-[#f0ece4]/90'
                 }`}
             >
               {n} Players
@@ -81,7 +81,7 @@ export default function GameSetup({ onStart, onBack }: GameSetupProps) {
 
       {/* Dice Mode */}
       <div className="mb-5">
-        <label className="block text-[11px] text-[#C4A35A]/50 mb-2 font-medium tracking-wide uppercase">
+        <label className="block text-xs text-[#C4A35A]/80 mb-2 font-semibold tracking-wide uppercase">
           Dice
         </label>
         <div className="flex gap-2">
@@ -92,7 +92,7 @@ export default function GameSetup({ onStart, onBack }: GameSetupProps) {
               className={`flex-1 py-2.5 rounded-lg font-semibold text-sm transition-all
                 ${diceMode === mode
                   ? 'btn-primary text-white'
-                  : 'bg-white/[0.04] text-[#C4A35A]/50 border border-white/[0.06] hover:bg-white/[0.08] hover:text-[#C4A35A]/70'
+                  : 'bg-white/[0.08] text-[#f0ece4]/70 border border-[#C4A35A]/25 hover:bg-white/[0.12] hover:text-[#f0ece4]/90'
                 }`}
             >
               {mode === 'single' ? '1 Die' : '2 Dice'}
@@ -110,8 +110,8 @@ export default function GameSetup({ onStart, onBack }: GameSetupProps) {
             onChange={e => setLockKillsLock(e.target.checked)}
             className="w-4 h-4 rounded accent-[#009B3A]"
           />
-          <span className="text-sm text-[#f0ece4]/60 group-hover:text-[#f0ece4]/80 transition-colors">
-            Lock Kills Lock <span className="text-[#C4A35A]/30 text-xs">(doubles on opponent block)</span>
+          <span className="text-sm text-[#f0ece4]/80 group-hover:text-[#f0ece4] transition-colors">
+            Lock Kills Lock <span className="text-[#C4A35A]/50 text-xs">(doubles on opponent block)</span>
           </span>
         </label>
         {playerCount === 2 && (
@@ -122,8 +122,8 @@ export default function GameSetup({ onStart, onBack }: GameSetupProps) {
               onChange={e => setTeamSharing(e.target.checked)}
               className="w-4 h-4 rounded accent-[#009B3A]"
             />
-            <span className="text-sm text-[#f0ece4]/60 group-hover:text-[#f0ece4]/80 transition-colors">
-              Team Sharing <span className="text-[#C4A35A]/30 text-xs">(allies share spaces)</span>
+            <span className="text-sm text-[#f0ece4]/80 group-hover:text-[#f0ece4] transition-colors">
+              Team Sharing <span className="text-[#C4A35A]/50 text-xs">(allies share spaces)</span>
             </span>
           </label>
         )}
@@ -131,22 +131,22 @@ export default function GameSetup({ onStart, onBack }: GameSetupProps) {
 
       {/* Player Slots */}
       <div className="mb-8 space-y-2">
-        <label className="block text-[11px] text-[#C4A35A]/50 mb-2 font-medium tracking-wide uppercase">
+        <label className="block text-xs text-[#C4A35A]/80 mb-2 font-semibold tracking-wide uppercase">
           Players
         </label>
         {Array.from({ length: slotsToShow }, (_, i) => (
           <div
             key={i}
-            className="flex items-center gap-2.5 glass-panel rounded-lg p-2.5"
+            className="flex items-center gap-2.5 glass-panel rounded-lg p-2.5 border border-[#C4A35A]/25"
           >
             <div className="flex gap-1">
               {slotColors[i].map(color => (
                 <div
                   key={color}
-                  className="w-4 h-4 rounded-full"
+                  className="w-4 h-4 rounded-full border border-white/20"
                   style={{
                     backgroundColor: COLOR_HEX[color],
-                    boxShadow: `0 0 4px ${COLOR_HEX[color]}30`,
+                    boxShadow: `0 0 6px ${COLOR_HEX[color]}40`,
                   }}
                 />
               ))}
@@ -160,15 +160,15 @@ export default function GameSetup({ onStart, onBack }: GameSetupProps) {
                 setPlayerNames(next);
               }}
               className="flex-1 bg-transparent text-sm text-[#f0ece4] outline-none px-2 py-1
-                         placeholder:text-[#C4A35A]/20 focus:border-b focus:border-[#C4A35A]/20"
+                         placeholder:text-[#C4A35A]/40 border-b border-[#C4A35A]/15 focus:border-[#C4A35A]/40"
               placeholder={`Player ${i + 1}`}
             />
             <button
               onClick={() => toggleAI(i)}
               className={`text-[10px] px-2.5 py-1 rounded font-semibold tracking-wide transition-all
                 ${aiSettings[i] !== null
-                  ? 'bg-[#C4A35A]/15 text-[#FED100]/80 border border-[#C4A35A]/20'
-                  : 'bg-white/[0.04] text-[#C4A35A]/40 border border-white/[0.06] hover:bg-white/[0.08]'
+                  ? 'bg-[#C4A35A]/20 text-[#FED100] border border-[#C4A35A]/30'
+                  : 'bg-white/[0.08] text-[#f0ece4]/60 border border-[#C4A35A]/20 hover:bg-white/[0.12] hover:text-[#f0ece4]/80'
                 }`}
             >
               {aiSettings[i] !== null ? 'AI' : 'Human'}
@@ -177,8 +177,8 @@ export default function GameSetup({ onStart, onBack }: GameSetupProps) {
               <select
                 value={aiSettings[i]!}
                 onChange={e => setAIDifficulty(i, e.target.value as AIDifficulty)}
-                className="text-[10px] bg-white/[0.06] text-[#f0ece4]/70 rounded px-2 py-1
-                           outline-none border border-white/[0.06]"
+                className="text-[10px] bg-white/[0.1] text-[#f0ece4]/90 rounded px-2 py-1
+                           outline-none border border-[#C4A35A]/25"
               >
                 <option value="easy">Easy</option>
                 <option value="medium">Medium</option>
@@ -193,8 +193,8 @@ export default function GameSetup({ onStart, onBack }: GameSetupProps) {
       <div className="flex gap-3">
         <button
           onClick={onBack}
-          className="flex-1 py-3 rounded-lg btn-secondary text-[#C4A35A]/60 font-medium
-                     hover:text-[#C4A35A] transition-colors"
+          className="flex-1 py-3 rounded-lg btn-secondary text-[#C4A35A] font-medium
+                     hover:text-[#FED100] transition-colors"
         >
           Back
         </button>
