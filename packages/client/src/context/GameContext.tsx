@@ -21,6 +21,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     diceMode: 'double',
     lockKillsLock: false,
     teamSharing: false,
+    turnTimer: 0,
   };
 
   const [state, dispatch] = useReducer(gameReducer, createGameState(defaultConfig, createPlayers(defaultConfig)));

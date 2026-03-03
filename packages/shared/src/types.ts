@@ -17,6 +17,7 @@ export interface GameConfig {
   diceMode: 'single' | 'double';
   lockKillsLock: boolean;
   teamSharing: boolean;
+  turnTimer: number; // 0=off, 15/30/60 seconds per turn
 }
 
 export interface Piece {
@@ -77,6 +78,7 @@ export interface GameState {
   turnCount: number;
   lastAction: string | null;
   gatesOpened: Record<Color, boolean>;
+  turnStartedAt: number; // timestamp when current turn started
 }
 
 export type GameAction =

@@ -22,6 +22,7 @@ export function createGameState(config: GameConfig, players: Player[]): GameStat
     turnCount: 0,
     lastAction: null,
     gatesOpened: { red: false, green: false, yellow: false, blue: false },
+    turnStartedAt: Date.now(),
   };
 }
 
@@ -186,6 +187,7 @@ function handleSelectMove(state: GameState, moveOption: MoveOption): GameState {
       moveOptions: [],
       extraRoll: false,
       lastAction: `${newState.lastAction} — extra roll!`,
+      turnStartedAt: Date.now(),
     };
   }
 
@@ -202,6 +204,7 @@ function handlePassTurn(state: GameState): GameState {
       selectedMoves: [],
       moveOptions: [],
       extraRoll: false,
+      turnStartedAt: Date.now(),
     };
   }
   return advanceTurn(state);
@@ -227,6 +230,7 @@ function advanceTurn(state: GameState): GameState {
     moveOptions: [],
     extraRoll: false,
     turnCount: state.turnCount + 1,
+    turnStartedAt: Date.now(),
   };
 }
 

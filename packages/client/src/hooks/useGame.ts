@@ -8,6 +8,7 @@ export function useGame(config?: GameConfig) {
     diceMode: 'double',
     lockKillsLock: false,
     teamSharing: false,
+    turnTimer: 0,
   };
 
   const [state, dispatch] = useReducer(

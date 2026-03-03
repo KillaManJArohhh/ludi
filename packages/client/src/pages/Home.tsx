@@ -1,10 +1,16 @@
 import { useNavigate } from 'react-router';
+import SoundToggle from '../components/ui/SoundToggle.js';
 
 export default function Home() {
   const navigate = useNavigate();
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 relative overflow-hidden">
+      {/* Sound toggle */}
+      <div className="absolute top-4 right-4 z-30">
+        <SoundToggle />
+      </div>
+
       {/* Ambient glow effects */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full bg-[#FED100]/[0.04] blur-[120px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[300px] h-[300px] rounded-full bg-[#009B3A]/[0.04] blur-[100px] pointer-events-none" />

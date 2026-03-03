@@ -2,8 +2,8 @@ import { createServer } from 'http';
 import { randomUUID } from 'crypto';
 import { Server } from 'socket.io';
 import app from './app.js';
-import { createRoom, joinRoom, startGame, listOpenRooms, getRoom } from './roomManager.js';
-import { setupGameSync } from './gameSync.js';
+import { createRoom, joinRoom, startGame, listOpenRooms, getRoom, rematchGame } from './roomManager.js';
+import { setupGameSync, startTurnTimer } from './gameSync.js';
 import { setupChatHandler } from './chatHandler.js';
 import { setupReconnection } from './reconnection.js';
 
@@ -95,9 +95,29 @@ io.on('connection', (socket) => {
     const gameState = startGame(roomCode);
     if (gameState) {
       io.to(roomCode).emit('game:started', gameState);
+      startTurnTimer(io, roomCode);
       if (typeof callback === 'function') callback({ success: true });
     } else {
       if (typeof callback === 'function') callback({ error: 'Cannot start game' });
+    }
+  });
+
+  socket.on('game:rematch', ({ roomCode }: { roomCode: string }, callback?) => {
+    if (!isValidRoomCode(roomCode)) return;
+    const room = getRoom(roomCode);
+    if (!room) return;
+
+    // Verify sender is in the room
+    const socketPlayerId = getPlayerIdBySocket(room, socket.id);
+    if (!socketPlayerId) return;
+
+    const gameState = rematchGame(roomCode);
+    if (gameState) {
+      io.to(roomCode).emit('game:started', gameState);
+      startTurnTimer(io, roomCode);
+      if (typeof callback === 'function') callback({ success: true });
+    } else {
+      if (typeof callback === 'function') callback({ error: 'Cannot rematch' });
     }
   });
 

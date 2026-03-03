@@ -96,6 +96,17 @@ export function startGame(code: string): GameState | null {
   return room.gameState;
 }
 
+export function rematchGame(code: string): GameState | null {
+  const room = rooms.get(code);
+  if (!room || !room.gameState) return null;
+
+  // Reset game state with same config and players
+  const players = room.gameState.players.map(p => ({ ...p }));
+  room.gameState = createGameState(room.config, players);
+  room.status = 'playing';
+  return room.gameState;
+}
+
 export function removeRoom(code: string): void {
   rooms.delete(code);
 }

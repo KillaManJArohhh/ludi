@@ -12,12 +12,13 @@ export default function GameSetup({ onStart, onBack }: GameSetupProps) {
   const [diceMode, setDiceMode] = useState<'single' | 'double'>('double');
   const [lockKillsLock, setLockKillsLock] = useState(false);
   const [teamSharing, setTeamSharing] = useState(false);
+  const [turnTimer, setTurnTimer] = useState(0);
 
   const [playerNames, setPlayerNames] = useState(['Player 1', 'Player 2', 'Player 3', 'Player 4']);
   const [aiSettings, setAiSettings] = useState<(AIDifficulty | null)[]>([null, null, null, null]);
 
   const handleStart = () => {
-    const config: GameConfig = { playerCount, diceMode, lockKillsLock, teamSharing };
+    const config: GameConfig = { playerCount, diceMode, lockKillsLock, teamSharing, turnTimer };
     const basePlayers = createPlayers(config);
 
     const players = basePlayers.map((p, i) => ({
@@ -96,6 +97,28 @@ export default function GameSetup({ onStart, onBack }: GameSetupProps) {
                 }`}
             >
               {mode === 'single' ? '1 Die' : '2 Dice'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Turn Timer */}
+      <div className="mb-5">
+        <label className="block text-xs text-[#C4A35A]/80 mb-2 font-semibold tracking-wide uppercase">
+          Turn Timer
+        </label>
+        <div className="flex gap-2">
+          {([0, 15, 30, 60] as const).map(seconds => (
+            <button
+              key={seconds}
+              onClick={() => setTurnTimer(seconds)}
+              className={`flex-1 py-2.5 rounded-lg font-semibold text-sm transition-all
+                ${turnTimer === seconds
+                  ? 'btn-primary text-white'
+                  : 'bg-white/[0.08] text-[#f0ece4]/70 border border-[#C4A35A]/25 hover:bg-white/[0.12] hover:text-[#f0ece4]/90'
+                }`}
+            >
+              {seconds === 0 ? 'Off' : `${seconds}s`}
             </button>
           ))}
         </div>

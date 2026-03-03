@@ -8,6 +8,7 @@ import PlayerPanel from './PlayerPanel.js';
 import TurnIndicator from './TurnIndicator.js';
 import MoveOptions from './MoveOptions.js';
 import GameOverModal from './GameOverModal.js';
+import SoundToggle from '../ui/SoundToggle.js';
 
 interface GameNotification {
   type: 'roll' | 'capture' | 'no_moves' | 'home' | 'exit_base';
@@ -26,6 +27,7 @@ interface GameScreenProps {
   onPlayAgain: () => void;
   onHome: () => void;
   localPlayerId?: string;
+  onRematch?: () => void;
 }
 
 export default function GameScreen({
@@ -36,12 +38,43 @@ export default function GameScreen({
   onPlayAgain,
   onHome,
   localPlayerId,
+  onRematch,
 }: GameScreenProps) {
   const currentPlayer = getCurrentPlayer(state);
   const isLocalTurn = localPlayerId ? currentPlayer.id === localPlayerId : true;
   const canRoll = state.turnPhase === 'waiting_for_roll' && !currentPlayer.isAI && isLocalTurn;
   const canPass = state.turnPhase === 'selecting_piece' && state.moveOptions.length === 0 && !currentPlayer.isAI && isLocalTurn;
   const showMoveOptions = state.turnPhase === 'selecting_piece' && state.moveOptions.length > 1 && !currentPlayer.isAI && isLocalTurn;
+
+  // Turn timer
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const timerAutoPassedRef = useRef(false);
+
+  useEffect(() => {
+    const timerSeconds = state.config.turnTimer;
+    if (!timerSeconds || state.winner) {
+      setTimeRemaining(null);
+      return;
+    }
+
+    // Reset auto-pass flag on each new turn start
+    timerAutoPassedRef.current = false;
+
+    const tick = () => {
+      const elapsed = (Date.now() - state.turnStartedAt) / 1000;
+      const remaining = Math.max(0, Math.ceil(timerSeconds - elapsed));
+      setTimeRemaining(remaining);
+
+      if (remaining <= 0 && !timerAutoPassedRef.current && isLocalTurn && !currentPlayer.isAI) {
+        timerAutoPassedRef.current = true;
+        onPass();
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 500);
+    return () => clearInterval(interval);
+  }, [state.turnStartedAt, state.config.turnTimer, state.winner, isLocalTurn, currentPlayer.isAI, onPass]);
 
   // General notification state
   const [notification, setNotification] = useState<GameNotification | null>(null);
@@ -174,7 +207,12 @@ export default function GameScreen({
     : null;
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 items-start justify-center p-4 min-h-screen">
+    <div className="flex flex-col lg:flex-row gap-4 items-start justify-center p-4 min-h-screen relative">
+      {/* Sound toggle */}
+      <div className="absolute top-4 right-4 z-30">
+        <SoundToggle />
+      </div>
+
       {/* Left panel: player info (desktop) */}
       <div className="hidden lg:flex flex-col gap-2 w-48">
         {state.players.slice(0, Math.ceil(state.players.length / 2)).map((p, i) => (
@@ -220,6 +258,7 @@ export default function GameScreen({
           onPass={onPass}
           canRoll={canRoll}
           canPass={canPass}
+          timeRemaining={timeRemaining}
         />
 
         {showMoveOptions && (
@@ -297,6 +336,7 @@ export default function GameScreen({
           turnCount={state.turnCount}
           onPlayAgain={onPlayAgain}
           onHome={onHome}
+          onRematch={onRematch}
         />
       )}
     </div>

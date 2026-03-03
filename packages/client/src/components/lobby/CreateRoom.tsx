@@ -10,6 +10,7 @@ export default function CreateRoom({ onCreated, onBack }: CreateRoomProps) {
   const [playerCount, setPlayerCount] = useState<2 | 4>(4);
   const [diceMode, setDiceMode] = useState<'single' | 'double'>('double');
   const [lockKillsLock, setLockKillsLock] = useState(false);
+  const [turnTimer, setTurnTimer] = useState(0);
 
   const handleCreate = () => {
     onCreated({
@@ -17,6 +18,7 @@ export default function CreateRoom({ onCreated, onBack }: CreateRoomProps) {
       diceMode,
       lockKillsLock,
       teamSharing: false,
+      turnTimer,
     });
   };
 
@@ -80,6 +82,27 @@ export default function CreateRoom({ onCreated, onBack }: CreateRoomProps) {
             Lock Kills Lock
           </span>
         </label>
+
+        <div>
+          <label className="block text-[11px] text-[#C4A35A]/50 mb-2 font-medium tracking-wide uppercase">
+            Turn Timer
+          </label>
+          <div className="flex gap-2">
+            {([0, 15, 30, 60] as const).map(seconds => (
+              <button
+                key={seconds}
+                onClick={() => setTurnTimer(seconds)}
+                className={`flex-1 py-2.5 rounded-lg font-semibold text-sm transition-all
+                  ${turnTimer === seconds
+                    ? 'btn-primary text-white'
+                    : 'bg-white/[0.04] text-[#C4A35A]/50 border border-white/[0.06] hover:bg-white/[0.08] hover:text-[#C4A35A]/70'
+                  }`}
+              >
+                {seconds === 0 ? 'Off' : `${seconds}s`}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="flex gap-3">

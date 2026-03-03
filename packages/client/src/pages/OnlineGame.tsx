@@ -49,6 +49,7 @@ export default function OnlineGame() {
     diceMode: 'double',
     lockKillsLock: false,
     teamSharing: false,
+    turnTimer: 0,
   });
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -196,6 +197,11 @@ export default function OnlineGame() {
     socket.emit('game:pass_turn', { roomCode: roomCodeRef.current });
   }, []);
 
+  const handleRematch = useCallback(() => {
+    const socket = getSocket();
+    socket.emit('game:rematch', { roomCode: roomCodeRef.current });
+  }, []);
+
   const handleSendChat = useCallback((text: string, isPreset: boolean) => {
     const socket = getSocket();
     socket.emit('chat:message', {
@@ -307,6 +313,7 @@ export default function OnlineGame() {
           onPlayAgain={handleLeaveRoom}
           onHome={() => navigate('/')}
           localPlayerId={playerId}
+          onRematch={handleRematch}
         />
         <ChatPanel
           messages={chatMessages}

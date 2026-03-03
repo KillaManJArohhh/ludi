@@ -16,6 +16,7 @@ export default function LocalGame() {
     diceMode: 'double',
     lockKillsLock: false,
     teamSharing: false,
+    turnTimer: 0,
   };
 
   const [gameState, dispatch] = useReducer(

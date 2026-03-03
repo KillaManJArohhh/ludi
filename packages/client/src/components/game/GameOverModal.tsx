@@ -6,9 +6,10 @@ interface GameOverModalProps {
   turnCount: number;
   onPlayAgain: () => void;
   onHome: () => void;
+  onRematch?: () => void;
 }
 
-export default function GameOverModal({ winner, turnCount, onPlayAgain, onHome }: GameOverModalProps) {
+export default function GameOverModal({ winner, turnCount, onPlayAgain, onHome, onRematch }: GameOverModalProps) {
   const primaryColor = COLOR_HEX[winner.colors[0]];
 
   return (
@@ -69,11 +70,19 @@ export default function GameOverModal({ winner, turnCount, onPlayAgain, onHome }
         </p>
 
         <div className="flex gap-3 justify-center">
+          {onRematch && (
+            <button
+              onClick={onRematch}
+              className="btn-primary px-8 py-3 rounded-lg text-white font-bold tracking-wide"
+            >
+              Rematch
+            </button>
+          )}
           <button
             onClick={onPlayAgain}
-            className="btn-primary px-8 py-3 rounded-lg text-white font-bold tracking-wide"
+            className={`${onRematch ? 'btn-secondary text-[#C4A35A]/70 hover:text-[#C4A35A]' : 'btn-primary text-white font-bold'} px-8 py-3 rounded-lg tracking-wide font-medium transition-colors`}
           >
-            Play Again
+            {onRematch ? 'New Game' : 'Play Again'}
           </button>
           <button
             onClick={onHome}

@@ -9,9 +9,10 @@ interface DiceAreaProps {
   onPass: () => void;
   canRoll: boolean;
   canPass: boolean;
+  timeRemaining?: number | null; // seconds left, null/undefined = no timer
 }
 
-export default function DiceArea({ state, onRoll, onPass, canRoll, canPass }: DiceAreaProps) {
+export default function DiceArea({ state, onRoll, onPass, canRoll, canPass, timeRemaining }: DiceAreaProps) {
   const [rolling, setRolling] = useState(false);
 
   const handleRoll = useCallback(() => {
@@ -76,6 +77,13 @@ export default function DiceArea({ state, onRoll, onPass, canRoll, canPass }: Di
           </button>
         )}
       </div>
+
+      {/* Turn timer countdown */}
+      {timeRemaining != null && timeRemaining >= 0 && (
+        <div className={`text-sm font-bold tracking-wide ${timeRemaining <= 5 ? 'text-red-400 animate-pulse' : 'text-[#C4A35A]/70'}`}>
+          {timeRemaining}s
+        </div>
+      )}
 
       {/* Last action info */}
       {state.lastAction && (
