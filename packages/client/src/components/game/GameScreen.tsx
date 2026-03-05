@@ -123,13 +123,12 @@ export default function GameScreen({
     // Roll notification (including no-moves rolls)
     if (lastAction.startsWith('Rolled')) {
       const noMoves = lastAction.includes('no moves');
-      let diceValues = state.diceValues;
-      if (diceValues.length === 0) {
-        const match = lastAction.match(/Rolled ([\d, ]+)/);
-        diceValues = match
-          ? match[1].split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n))
-          : [];
-      }
+      // Always parse dice values from lastAction string — state.diceValues may
+      // already be cleared if the turn auto-advanced (no moves) or stale from batching.
+      const match = lastAction.match(/Rolled ([\d, ]+)/);
+      const diceValues = match
+        ? match[1].split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n))
+        : state.diceValues;
       setNotification({
         type: noMoves ? 'no_moves' : 'roll',
         playerName: player.name,
