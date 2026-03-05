@@ -40,12 +40,30 @@ export function startTurnTimer(io: Server, roomCode: string) {
     const currentRoom = getRoom(roomCode);
     if (!currentRoom?.gameState || currentRoom.gameState.winner) return;
 
-    const newState = gameReducer(currentRoom.gameState, { type: 'PASS_TURN' });
+    const gs = currentRoom.gameState;
+    let newState;
+
+    if (gs.turnPhase === 'waiting_for_roll') {
+      // Auto-roll the dice
+      newState = gameReducer(gs, { type: 'ROLL_DICE' });
+    } else if (gs.turnPhase === 'selecting_piece' && gs.moveOptions.length > 0) {
+      // Auto-select a random move
+      const randomMove = gs.moveOptions[Math.floor(Math.random() * gs.moveOptions.length)];
+      newState = gameReducer(gs, { type: 'SELECT_MOVE', moveOption: randomMove });
+    } else {
+      // No moves available — pass
+      newState = gameReducer(gs, { type: 'PASS_TURN' });
+    }
+
     currentRoom.gameState = newState;
     io.to(roomCode).emit('game:state_update', newState);
 
-    // Restart timer for next turn
-    startTurnTimer(io, roomCode);
+    if (newState.winner) {
+      io.to(roomCode).emit('game:ended', { winnerId: newState.winner });
+    } else {
+      // Restart timer for next turn/phase
+      startTurnTimer(io, roomCode);
+    }
   }, remaining + 500); // small buffer to let client-side timer fire first
 
   turnTimers.set(roomCode, timer);

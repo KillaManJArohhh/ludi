@@ -68,14 +68,21 @@ export default function GameScreen({
 
       if (remaining <= 0 && !timerAutoPassedRef.current && isLocalTurn && !currentPlayer.isAI) {
         timerAutoPassedRef.current = true;
-        onPass();
+        if (state.turnPhase === 'waiting_for_roll') {
+          onRoll();
+        } else if (state.turnPhase === 'selecting_piece' && state.moveOptions.length > 0) {
+          const randomMove = state.moveOptions[Math.floor(Math.random() * state.moveOptions.length)];
+          onSelectMove(randomMove);
+        } else {
+          onPass();
+        }
       }
     };
 
     tick();
     const interval = setInterval(tick, 500);
     return () => clearInterval(interval);
-  }, [state.turnStartedAt, state.config.turnTimer, state.winner, isLocalTurn, currentPlayer.isAI, onPass]);
+  }, [state.turnStartedAt, state.config.turnTimer, state.winner, state.turnPhase, state.moveOptions, isLocalTurn, currentPlayer.isAI, onRoll, onSelectMove, onPass]);
 
   // Play turn-start sound when it becomes local player's turn
   const prevTurnIndexRef = useRef(state.currentPlayerIndex);
