@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { GameState } from '@ludi/shared';
 import { audioManager } from '../../services/audioManager.js';
 import Die from './Die.js';
@@ -14,9 +14,13 @@ interface DiceAreaProps {
 
 export default function DiceArea({ state, onRoll, onPass, canRoll, canPass, timeRemaining }: DiceAreaProps) {
   const [rolling, setRolling] = useState(false);
+  const [displayValues, setDisplayValues] = useState<number[]>(state.diceValues);
+  const prevDiceRef = useRef<number[]>([]);
+  const localRollRef = useRef(false);
 
   const handleRoll = useCallback(() => {
     if (!canRoll || rolling) return;
+    localRollRef.current = true;
     setRolling(true);
     audioManager.play('dice-roll');
 
@@ -25,6 +29,36 @@ export default function DiceArea({ state, onRoll, onPass, canRoll, canPass, time
       onRoll();
     }, 800);
   }, [canRoll, rolling, onRoll]);
+
+  // Animate dice when new values arrive from opponent (skip if local roll)
+  useEffect(() => {
+    const prev = prevDiceRef.current;
+    prevDiceRef.current = state.diceValues;
+
+    if (state.diceValues.length === 0) {
+      setDisplayValues([]);
+      return;
+    }
+
+    const changed = state.diceValues.length !== prev.length ||
+      state.diceValues.some((v, i) => v !== prev[i]);
+
+    if (changed && localRollRef.current) {
+      // Local roll — sound already played, just show values
+      localRollRef.current = false;
+      setDisplayValues(state.diceValues);
+    } else if (changed) {
+      // Remote roll — play sound + animate
+      setRolling(true);
+      audioManager.play('dice-roll');
+      setTimeout(() => {
+        setRolling(false);
+        setDisplayValues(state.diceValues);
+      }, 600);
+    } else {
+      setDisplayValues(state.diceValues);
+    }
+  }, [state.diceValues]);
 
   // Spacebar to roll dice
   useEffect(() => {
@@ -39,7 +73,7 @@ export default function DiceArea({ state, onRoll, onPass, canRoll, canPass, time
   }, [handleRoll]);
 
   const diceCount = state.config.diceMode === 'double' ? 2 : 1;
-  const hasValues = state.diceValues.length > 0;
+  const hasValues = displayValues.length > 0;
 
   return (
     <div className="flex flex-col items-center gap-3">
@@ -48,9 +82,9 @@ export default function DiceArea({ state, onRoll, onPass, canRoll, canPass, time
         {Array.from({ length: diceCount }, (_, i) => (
           <Die
             key={i}
-            value={hasValues ? state.diceValues[i] : null}
+            value={hasValues ? displayValues[i] : null}
             rolling={rolling}
-            used={hasValues && !state.diceRemaining.includes(state.diceValues[i])}
+            used={hasValues && !state.diceRemaining.includes(displayValues[i])}
           />
         ))}
       </div>
@@ -85,12 +119,6 @@ export default function DiceArea({ state, onRoll, onPass, canRoll, canPass, time
         </div>
       )}
 
-      {/* Last action info */}
-      {state.lastAction && (
-        <p className="text-[11px] text-[#C4A35A]/30 text-center font-medium">
-          {state.lastAction}
-        </p>
-      )}
     </div>
   );
 }

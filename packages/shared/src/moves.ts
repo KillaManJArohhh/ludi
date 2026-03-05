@@ -54,6 +54,9 @@ function getSinglePieceMoves(
 
     // Check if start square is blocked by opponent
     if (hasOpponentBlock) {
+      // Lock Kills Lock rule must be enabled
+      if (!state.config.lockKillsLock) return null;
+
       // Special rule: can break through block with double 6 + at least 2 pieces home
       const isDouble6 = state.diceValues.length === 2 && state.diceValues[0] === 6 && state.diceValues[1] === 6;
       const piecesHome = teamColors.flatMap(c => getPiecesByColor(state, c))
@@ -206,7 +209,10 @@ function getSinglePieceMoves(
     const opponentsAtDest = piecesAtDest.filter(p => !teamColors.includes(p.color));
 
     if (movingAsBlock) {
-      // Block can capture opponent block (or single pieces) at destination
+      const opponentHasBlock = opponentsAtDest.length >= 2;
+      // Lock can only capture an opponent lock if lockKillsLock is enabled
+      if (opponentHasBlock && !state.config.lockKillsLock) return null;
+
       return {
         pieceId: piece.id,
         diceValue,
@@ -256,10 +262,20 @@ export function computeMoveOptions(state: GameState): MoveOption[] {
 
   const options: MoveOption[] = [];
 
+  // Track pieces that captured earlier this turn (no hit-and-run).
+  // Exception: exit-base captures are allowed to continue.
+  const capturedPieceIds = new Set(
+    state.selectedMoves
+      .filter(m => m.isCapture && !m.isExit)
+      .map(m => m.pieceId)
+  );
+
   if (diceRemaining.length === 1) {
     // Single die remaining
     const dv = diceRemaining[0];
     for (const piece of playerPieces) {
+      // No hit-and-run: skip pieces that already captured this turn
+      if (capturedPieceIds.has(piece.id)) continue;
       const move = getSinglePieceMoves(state, piece, dv, teamColors);
       if (move) {
         options.push({

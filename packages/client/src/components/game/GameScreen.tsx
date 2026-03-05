@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import type { GameState, MoveOption } from '@ludi/shared';
+import type { GameState, MoveOption, Color } from '@ludi/shared';
 import { selectAIMove, getAIDelay, getCurrentPlayer, COLOR_HEX, getActiveColors, getPiecesByColor } from '@ludi/shared';
 import { audioManager } from '../../services/audioManager.js';
 import LudiBoard from '../board/LudiBoard.js';
@@ -10,10 +10,11 @@ import MoveOptions from './MoveOptions.js';
 import GameOverModal from './GameOverModal.js';
 import SoundToggle from '../ui/SoundToggle.js';
 
-interface GameNotification {
+export interface GameNotification {
   type: 'roll' | 'capture' | 'no_moves' | 'home' | 'exit_base';
   playerName: string;
   color: string;
+  playerColor: Color; // which color's base to render in
   message: string;
   detail?: string;
   diceValues?: number[];
@@ -76,6 +77,23 @@ export default function GameScreen({
     return () => clearInterval(interval);
   }, [state.turnStartedAt, state.config.turnTimer, state.winner, isLocalTurn, currentPlayer.isAI, onPass]);
 
+  // Play turn-start sound when it becomes local player's turn
+  const prevTurnIndexRef = useRef(state.currentPlayerIndex);
+  useEffect(() => {
+    if (prevTurnIndexRef.current !== state.currentPlayerIndex) {
+      prevTurnIndexRef.current = state.currentPlayerIndex;
+      if (isLocalTurn && !currentPlayer.isAI) {
+        audioManager.play('turn-start');
+      }
+    }
+  }, [state.currentPlayerIndex, isLocalTurn, currentPlayer.isAI]);
+
+  // Wrap onSelectMove to play piece-move sound
+  const handleSelectMove = (option: MoveOption) => {
+    audioManager.play('piece-move');
+    onSelectMove(option);
+  };
+
   // General notification state
   const [notification, setNotification] = useState<GameNotification | null>(null);
   const prevLastActionRef = useRef<string | null>(null);
@@ -93,12 +111,11 @@ export default function GameScreen({
     const player = state.players[playerIndex];
     if (!player) return;
     const color = COLOR_HEX[player.colors[0]];
+    const pColor = player.colors[0];
 
     // Roll notification (including no-moves rolls)
     if (lastAction.startsWith('Rolled')) {
       const noMoves = lastAction.includes('no moves');
-      // Prefer state.diceValues for consistency with DiceArea; parse from lastAction
-      // as fallback when state.diceValues is cleared (auto-pass on no moves)
       let diceValues = state.diceValues;
       if (diceValues.length === 0) {
         const match = lastAction.match(/Rolled ([\d, ]+)/);
@@ -110,6 +127,7 @@ export default function GameScreen({
         type: noMoves ? 'no_moves' : 'roll',
         playerName: player.name,
         color,
+        playerColor: pColor,
         message: `${player.name} rolled`,
         detail: noMoves ? 'No moves available' : undefined,
         diceValues,
@@ -125,6 +143,7 @@ export default function GameScreen({
         type: 'capture',
         playerName: player.name,
         color,
+        playerColor: pColor,
         message: `${player.name} captured!`,
         detail: lastAction,
       });
@@ -139,6 +158,7 @@ export default function GameScreen({
         type: 'home',
         playerName: player.name,
         color,
+        playerColor: pColor,
         message: 'Piece reached home!',
         detail: lastAction,
       });
@@ -179,22 +199,19 @@ export default function GameScreen({
     }
   }, [localPlayerId, currentPlayer, state.turnPhase, state.moveOptions, state.winner, onRoll, onSelectMove, onPass]);
 
-  // Auto-move only when the player has exactly one piece on the board
-  // (active on circuit or home stretch — not in base or home) and there's
-  // at least one legal move. With only one piece out there's no piece choice.
+  // Auto-move only when exactly 1 piece is on the board and there's 1 option.
+  // 2+ pieces: player always chooses manually, no exceptions.
   useEffect(() => {
     if (currentPlayer.isAI || state.winner) return;
     if (!isLocalTurn) return;
     if (state.turnPhase !== 'selecting_piece') return;
-    if (state.moveOptions.length === 0) return;
 
     const activeColors = getActiveColors(state);
     const activePieces = activeColors
       .flatMap(c => getPiecesByColor(state, c))
       .filter(p => p.state === 'active');
-
-    // Only auto-move if exactly 1 piece is active AND there's exactly 1 option
-    if (activePieces.length !== 1 || state.moveOptions.length !== 1) return;
+    if (state.moveOptions.length !== 1) return;
+    if (activePieces.length !== 1) return;
 
     const timer = setTimeout(() => {
       onSelectMove(state.moveOptions[0]);
@@ -205,6 +222,15 @@ export default function GameScreen({
   const winnerPlayer = state.winner
     ? state.players.find(p => p.id === state.winner)
     : null;
+
+  // Play victory fanfare when game is won
+  const prevWinnerRef = useRef(state.winner);
+  useEffect(() => {
+    if (state.winner && !prevWinnerRef.current) {
+      audioManager.play('victory');
+    }
+    prevWinnerRef.current = state.winner;
+  }, [state.winner]);
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 items-start justify-center p-4 min-h-screen relative">
@@ -235,21 +261,33 @@ export default function GameScreen({
 
         <LudiBoard
           state={state}
-          onSelectMove={onSelectMove}
+          onSelectMove={handleSelectMove}
           interactive={!currentPlayer.isAI && isLocalTurn}
+          notification={notification}
         />
 
         {/* Mobile player panels */}
         <div className="flex lg:hidden gap-2 w-full overflow-x-auto">
-          {state.players.map((p, i) => (
-            <div key={p.id} className="flex-shrink-0 w-40">
-              <PlayerPanel
-                player={p}
-                state={state}
-                isActive={state.currentPlayerIndex === i}
-              />
-            </div>
-          ))}
+          {state.players.map((p, i) => {
+            const isActive = state.currentPlayerIndex === i;
+            return (
+              <div
+                key={p.id}
+                className="flex-shrink-0 w-40"
+                ref={el => {
+                  if (isActive && el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                  }
+                }}
+              >
+                <PlayerPanel
+                  player={p}
+                  state={state}
+                  isActive={isActive}
+                />
+              </div>
+            );
+          })}
         </div>
 
         <DiceArea
@@ -264,9 +302,10 @@ export default function GameScreen({
         {showMoveOptions && (
           <MoveOptions
             options={state.moveOptions}
-            onSelect={onSelectMove}
+            onSelect={handleSelectMove}
           />
         )}
+
       </div>
 
       {/* Right panel: player info (desktop) */}
@@ -283,51 +322,6 @@ export default function GameScreen({
           );
         })}
       </div>
-
-      {/* Game notification */}
-      {notification && (
-        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-40">
-          <div
-            className="glass-panel rounded-2xl px-8 py-5 flex flex-col items-center gap-3 border animate-fade-in"
-            style={{
-              borderColor: `${notification.color}50`,
-              boxShadow: `0 0 40px ${notification.color}15, 0 8px 32px rgba(0,0,0,0.4)`,
-            }}
-          >
-            <span className="text-sm font-semibold text-[#f0ece4]/80 tracking-wide">
-              {notification.message}
-            </span>
-            {(notification.type === 'roll' || notification.type === 'no_moves') && notification.diceValues && notification.diceValues.length > 0 && (
-              <div className="flex gap-4">
-                {notification.diceValues.map((v, i) => (
-                  <span
-                    key={i}
-                    className="text-4xl font-bold font-[Playfair_Display]"
-                    style={{ color: notification.color, textShadow: `0 0 12px ${notification.color}40` }}
-                  >
-                    {v}
-                  </span>
-                ))}
-              </div>
-            )}
-            {notification.type === 'capture' && (
-              <svg width="32" height="32" viewBox="0 0 32 32">
-                <circle cx="16" cy="16" r="12" fill="none" stroke="#DC2626" strokeWidth="2" opacity="0.6" />
-                <path d="M10 10 L22 22 M22 10 L10 22" stroke="#DC2626" strokeWidth="2.5" strokeLinecap="round" />
-              </svg>
-            )}
-            {notification.type === 'home' && (
-              <svg width="32" height="32" viewBox="0 0 32 32">
-                <path d="M16 4 L28 14 L24 14 L24 26 L8 26 L8 14 L4 14 Z" fill="#FED100" opacity="0.7" />
-                <rect x="13" y="18" width="6" height="8" fill="#0d0805" opacity="0.6" rx="1" />
-              </svg>
-            )}
-            {notification.detail && (
-              <span className="text-[11px] text-[#C4A35A]/40 font-medium">{notification.detail}</span>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Victory modal */}
       {winnerPlayer && (

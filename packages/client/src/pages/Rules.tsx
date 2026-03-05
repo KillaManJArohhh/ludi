@@ -143,10 +143,22 @@ export default function Rules() {
           <Section title="Optional Rules">
             <div className="space-y-3">
               <SubSection title="Lock Kills Lock">
-                <p className="text-[#f0ece4]/80">
-                  When enabled, rolling doubles with at least 2 pieces already home allows you to
-                  break through an opponent's lock blocking your start square, capturing all their pieces.
+                <p className="text-[#f0ece4]/80 mb-2">
+                  When enabled, locks gain the power to destroy other locks:
                 </p>
+                <ul className="list-disc list-inside space-y-1.5 ml-2 text-[#f0ece4]/80">
+                  <li>
+                    <strong>Start square break-through:</strong> If an opponent's lock is blocking your
+                    start square, rolling <strong>double 6</strong> with at least <strong>2 pieces already
+                    home</strong> lets you exit base and capture all their pieces.
+                  </li>
+                  <li>
+                    <strong>Lock vs. lock on the circuit:</strong> Your lock can land on and capture an
+                    opponent's lock by rolling the matching double. For example, if an opponent's lock is
+                    4 squares ahead, rolling <strong>double 4</strong> moves your lock onto theirs and
+                    sends all their pieces back to base.
+                  </li>
+                </ul>
               </SubSection>
               <SubSection title="Team Sharing (2-Player)">
                 <p className="text-[#f0ece4]/80">

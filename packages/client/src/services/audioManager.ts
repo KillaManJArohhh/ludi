@@ -25,6 +25,10 @@ class AudioManager {
 
     try {
       const ctx = this.getContext();
+      // Resume suspended context (browsers require user gesture to start AudioContext)
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
 
       switch (name) {
         case 'dice-roll':

@@ -9,9 +9,11 @@ import {
   CROSS_SQUARES,
   CELL_SIZE,
   COLOR_HEX,
+  BASE_POSITIONS,
   getSquareColor,
 } from '@ludi/shared';
 import { gridToSvg, getPiecesByColor, getPieceSvgPos } from '@ludi/shared';
+import type { GameNotification } from '../game/GameScreen.js';
 import BoardBackground from './BoardBackground.js';
 import BoardSquare from './BoardSquare.js';
 import HomeBase from './HomeBase.js';
@@ -19,13 +21,29 @@ import HomeStretch from './HomeStretch.js';
 import CenterHome from './CenterHome.js';
 import Piece from './Piece.js';
 
+/** Split a combined MoveOption to only include moves for a specific piece.
+ *  This prevents the tooltip/square-click from auto-executing the other piece's move. */
+function splitForPiece(option: MoveOption, pieceId: string): MoveOption {
+  const pMoves = option.moves.filter(m => m.pieceId === pieceId);
+  if (pMoves.length === option.moves.length) return option; // already single-piece
+  const indices = option.moves
+    .map((m, i) => m.pieceId === pieceId ? i : -1)
+    .filter(i => i >= 0);
+  return {
+    moves: pMoves,
+    diceUsed: indices.map(i => option.diceUsed[i]),
+    description: option.description,
+  };
+}
+
 interface LudiBoardProps {
   state: GameState;
   onSelectMove?: (option: MoveOption) => void;
   interactive?: boolean;
+  notification?: GameNotification | null;
 }
 
-export default function LudiBoard({ state, onSelectMove, interactive = true }: LudiBoardProps) {
+export default function LudiBoard({ state, onSelectMove, interactive = true, notification }: LudiBoardProps) {
   const [selectedPieceId, setSelectedPieceId] = useState<string | null>(null);
 
   // Determine which pieces are selectable (belong to current player and have moves)
@@ -93,12 +111,6 @@ export default function LudiBoard({ state, onSelectMove, interactive = true }: L
     }
 
     setSelectedPieceId(piece.id);
-
-    // Only auto-select if there's truly no choice (single total option).
-    if (state.moveOptions.length === 1 && onSelectMove) {
-      onSelectMove(state.moveOptions[0]);
-      setSelectedPieceId(null);
-    }
   };
 
   const handleSquareClick = (circuitIndex: number) => {
@@ -109,7 +121,8 @@ export default function LudiBoard({ state, onSelectMove, interactive = true }: L
     );
 
     if (matchingOption && onSelectMove) {
-      onSelectMove(matchingOption);
+      const partial = splitForPiece(matchingOption, selectedPieceId);
+      onSelectMove(partial);
       setSelectedPieceId(null);
     }
   };
@@ -226,7 +239,45 @@ export default function LudiBoard({ state, onSelectMove, interactive = true }: L
         );
       })}
 
-      {/* Layer 8: Move tooltip (speech bubble) for selected piece */}
+      {/* Layer 8: Roll notification in player's base — dice numbers only */}
+      {notification && (notification.type === 'roll' || notification.type === 'no_moves') && notification.diceValues && notification.diceValues.length > 0 && (() => {
+        const basePos = BASE_POSITIONS[notification.playerColor];
+        const centerRow = basePos.reduce((s, p) => s + p.row, 0) / basePos.length;
+        const centerCol = basePos.reduce((s, p) => s + p.col, 0) / basePos.length;
+        const cx = centerCol * CELL_SIZE + CELL_SIZE / 2;
+        const cy = centerRow * CELL_SIZE + CELL_SIZE / 2;
+        const dv = notification.diceValues!;
+
+        return (
+          <g style={{ pointerEvents: 'none' }}>
+            <circle cx={cx} cy={cy} r="38" fill="#0d0805" opacity="0.7" />
+            <circle cx={cx} cy={cy} r="38" fill="none" stroke={notification.color} strokeWidth="2" opacity="0.4" />
+            {dv.map((v, i) => {
+              const totalWidth = dv.length === 1 ? 0 : (dv.length - 1) * 36;
+              const dx = dv.length === 1 ? 0 : -totalWidth / 2 + i * 36;
+              return (
+                <text
+                  key={i}
+                  x={cx + dx}
+                  y={cy}
+                  textAnchor="middle"
+                  dy="0.35em"
+                  fontSize="28"
+                  fontWeight="900"
+                  fontFamily="'Playfair Display', serif"
+                  fill="#ffffff"
+                  stroke={notification.color}
+                  strokeWidth="0.5"
+                >
+                  {v}
+                </text>
+              );
+            })}
+          </g>
+        );
+      })()}
+
+      {/* Layer 9: Move tooltip (speech bubble) for selected piece */}
       {selectedPieceId && selectedPieceMoves.length > 0 && (() => {
         const piece = state.pieces[selectedPieceId];
         if (!piece || piece.state === 'home') return null;
@@ -260,7 +311,7 @@ export default function LudiBoard({ state, onSelectMove, interactive = true }: L
             else if (last.to.homePos !== null) desc += ' — home stretch';
             else desc += ' — move forward';
           }
-          choices.push({ desc, isCapture, isHome, option: opt });
+          choices.push({ desc, isCapture, isHome, option: splitForPiece(opt, selectedPieceId!) });
         }
 
         if (choices.length === 0) return null;
