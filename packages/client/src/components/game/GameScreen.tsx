@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import type { GameState, MoveOption, Color } from '@ludi/shared';
 import { selectAIMove, getAIDelay, getCurrentPlayer, COLOR_HEX, getActiveColors, getPiecesByColor } from '@ludi/shared';
 import { audioManager } from '../../services/audioManager.js';
@@ -103,10 +103,32 @@ export default function GameScreen({
 
   // General notification state
   const [notification, setNotification] = useState<GameNotification | null>(null);
+  const notifTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const prevLastActionRef = useRef<string | null>(null);
   const prevPlayerIndexRef = useRef<number>(state.currentPlayerIndex);
 
-  // Watch lastAction changes to trigger notifications
+  // Roll notification — triggered by DiceArea after dice finish animating
+  const handleDiceSettled = useCallback((values: number[]) => {
+    const player = state.players[state.currentPlayerIndex];
+    if (!player || values.length === 0) return;
+    const color = COLOR_HEX[player.colors[0]];
+    const pColor = player.colors[0];
+    const noMoves = state.turnPhase === 'selecting_piece' && state.moveOptions.length === 0;
+
+    clearTimeout(notifTimerRef.current);
+    setNotification({
+      type: noMoves ? 'no_moves' : 'roll',
+      playerName: player.name,
+      color,
+      playerColor: pColor,
+      message: `${player.name} rolled`,
+      detail: noMoves ? 'No moves available' : undefined,
+      diceValues: values,
+    });
+    notifTimerRef.current = setTimeout(() => setNotification(null), 2000);
+  }, [state.players, state.currentPlayerIndex, state.turnPhase, state.moveOptions.length]);
+
+  // Watch lastAction changes for capture/home notifications (not rolls)
   useEffect(() => {
     const lastAction = state.lastAction;
     if (lastAction === prevLastActionRef.current) return;
@@ -120,31 +142,10 @@ export default function GameScreen({
     const color = COLOR_HEX[player.colors[0]];
     const pColor = player.colors[0];
 
-    // Roll notification (including no-moves rolls)
-    if (lastAction.startsWith('Rolled')) {
-      const noMoves = lastAction.includes('no moves');
-      // Always parse dice values from lastAction string — state.diceValues may
-      // already be cleared if the turn auto-advanced (no moves) or stale from batching.
-      const match = lastAction.match(/Rolled ([\d, ]+)/);
-      const diceValues = match
-        ? match[1].split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n))
-        : state.diceValues;
-      setNotification({
-        type: noMoves ? 'no_moves' : 'roll',
-        playerName: player.name,
-        color,
-        playerColor: pColor,
-        message: `${player.name} rolled`,
-        detail: noMoves ? 'No moves available' : undefined,
-        diceValues,
-      });
-      const timer = setTimeout(() => setNotification(null), 2000);
-      return () => clearTimeout(timer);
-    }
-
     // Capture notification
     if (lastAction.includes('captured')) {
       audioManager.play('capture');
+      clearTimeout(notifTimerRef.current);
       setNotification({
         type: 'capture',
         playerName: player.name,
@@ -153,13 +154,14 @@ export default function GameScreen({
         message: `${player.name} captured!`,
         detail: lastAction,
       });
-      const timer = setTimeout(() => setNotification(null), 2500);
-      return () => clearTimeout(timer);
+      notifTimerRef.current = setTimeout(() => setNotification(null), 2500);
+      return;
     }
 
     // Home notification
     if (lastAction.includes('reached home')) {
       audioManager.play('piece-home');
+      clearTimeout(notifTimerRef.current);
       setNotification({
         type: 'home',
         playerName: player.name,
@@ -168,8 +170,8 @@ export default function GameScreen({
         message: 'Piece reached home!',
         detail: lastAction,
       });
-      const timer = setTimeout(() => setNotification(null), 2500);
-      return () => clearTimeout(timer);
+      notifTimerRef.current = setTimeout(() => setNotification(null), 2500);
+      return;
     }
   }, [state.lastAction, state.currentPlayerIndex, state.players]);
 
@@ -303,6 +305,7 @@ export default function GameScreen({
           canRoll={canRoll}
           canPass={canPass}
           timeRemaining={timeRemaining}
+          onDiceSettled={handleDiceSettled}
         />
 
         {showMoveOptions && (

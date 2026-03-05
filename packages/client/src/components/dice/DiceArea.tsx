@@ -10,9 +10,10 @@ interface DiceAreaProps {
   canRoll: boolean;
   canPass: boolean;
   timeRemaining?: number | null; // seconds left, null/undefined = no timer
+  onDiceSettled?: (values: number[]) => void; // called after dice finish animating
 }
 
-export default function DiceArea({ state, onRoll, onPass, canRoll, canPass, timeRemaining }: DiceAreaProps) {
+export default function DiceArea({ state, onRoll, onPass, canRoll, canPass, timeRemaining, onDiceSettled }: DiceAreaProps) {
   const [rolling, setRolling] = useState(false);
   const [displayValues, setDisplayValues] = useState<number[]>(state.diceValues);
   const prevDiceRef = useRef<number[]>([]);
@@ -47,6 +48,8 @@ export default function DiceArea({ state, onRoll, onPass, canRoll, canPass, time
       // Local roll — sound already played, just show values
       localRollRef.current = false;
       setDisplayValues(state.diceValues);
+      // Small delay to let Die component's internal effect update before notification
+      setTimeout(() => onDiceSettled?.(state.diceValues), 50);
     } else if (changed) {
       // Remote roll — play sound + animate
       setRolling(true);
@@ -54,6 +57,7 @@ export default function DiceArea({ state, onRoll, onPass, canRoll, canPass, time
       setTimeout(() => {
         setRolling(false);
         setDisplayValues(state.diceValues);
+        onDiceSettled?.(state.diceValues);
       }, 600);
     } else {
       setDisplayValues(state.diceValues);
