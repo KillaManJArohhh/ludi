@@ -1,5 +1,5 @@
 import type { Server, Socket } from 'socket.io';
-import { getRoom, getAllRooms } from './roomManager.js';
+import { getRoom, getAllRooms, removeSpectatorBySocket } from './roomManager.js';
 
 const disconnectTimers = new Map<string, NodeJS.Timeout>();
 const RECONNECT_GRACE = 2 * 60 * 1000; // 2 minutes
@@ -43,6 +43,9 @@ export function setupReconnection(io: Server) {
     });
 
     socket.on('disconnect', () => {
+      // Clean up spectators
+      removeSpectatorBySocket(socket.id);
+
       // Find rooms this socket is in
       for (const [code, room] of getAllRooms()) {
         for (const [playerId, entry] of room.players) {

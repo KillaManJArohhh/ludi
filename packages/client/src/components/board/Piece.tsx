@@ -33,7 +33,7 @@ export default function Piece({
   const innerR = 5.5 * scale;
   const shadowR = 12 * scale;
   const selectR = 17 * scale;
-  const touchR = 22 * scale;
+  const touchR = Math.max(24, 28 * scale);
   const fontSize = Math.max(5, 7.5 * scale);
 
   const hex = COLOR_HEX[piece.color];

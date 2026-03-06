@@ -2,13 +2,19 @@ import { createServer } from 'http';
 import { randomUUID } from 'crypto';
 import { Server } from 'socket.io';
 import app from './app.js';
-import { createRoom, joinRoom, startGame, listOpenRooms, getRoom, rematchGame } from './roomManager.js';
+import { createRoom, joinRoom, startGame, listOpenRooms, getRoom, rematchGame, addSpectator, removeSpectatorBySocket, listActiveGames } from './roomManager.js';
 import { setupGameSync, startTurnTimer } from './gameSync.js';
 import { setupChatHandler } from './chatHandler.js';
 import { setupReconnection } from './reconnection.js';
+import { getDb } from './db/index.js';
+import { verifyToken } from './auth.js';
 
 const PORT = process.env.PORT || 4301;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
+
+// Initialize database
+getDb();
+console.log('Database initialized');
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -38,6 +44,20 @@ function getPlayerIdBySocket(room: ReturnType<typeof getRoom>, socketId: string)
   }
   return null;
 }
+
+// Socket.io auth middleware — extract userId from JWT if present
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (token && typeof token === 'string') {
+    const payload = verifyToken(token);
+    if (payload) {
+      (socket.data as any).userId = payload.userId;
+      (socket.data as any).username = payload.username;
+    }
+  }
+  // Always allow connection (guests play without auth)
+  next();
+});
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
@@ -125,8 +145,36 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback(listOpenRooms());
   });
 
+  socket.on('room:list_active', (callback) => {
+    if (typeof callback === 'function') callback(listActiveGames());
+  });
+
+  socket.on('room:spectate', ({ roomCode, spectatorName }, callback) => {
+    if (typeof callback !== 'function') return;
+    if (!isValidRoomCode(roomCode)) {
+      callback({ error: 'Invalid room code' });
+      return;
+    }
+    const name = sanitizeName(spectatorName);
+    const spectatorId = randomUUID();
+    const room = addSpectator(roomCode, spectatorId, socket.id, name);
+    if (!room) {
+      callback({ error: 'Game not found or not in progress' });
+      return;
+    }
+    socket.join(roomCode);
+    callback({
+      gameState: room.gameState,
+      players: Array.from(room.players.values()).map(e => e.player),
+    });
+    io.to(roomCode).emit('room:spectator_update', {
+      spectatorCount: room.spectators.size,
+    });
+  });
+
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
+    removeSpectatorBySocket(socket.id);
   });
 });
 

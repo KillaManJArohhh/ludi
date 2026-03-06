@@ -29,6 +29,8 @@ interface GameScreenProps {
   onHome: () => void;
   localPlayerId?: string;
   onRematch?: () => void;
+  eloChange?: number | null;
+  isSpectator?: boolean;
 }
 
 export default function GameScreen({
@@ -40,12 +42,14 @@ export default function GameScreen({
   onHome,
   localPlayerId,
   onRematch,
+  eloChange,
+  isSpectator,
 }: GameScreenProps) {
   const currentPlayer = getCurrentPlayer(state);
-  const isLocalTurn = localPlayerId ? currentPlayer.id === localPlayerId : true;
-  const canRoll = state.turnPhase === 'waiting_for_roll' && !currentPlayer.isAI && isLocalTurn;
-  const canPass = state.turnPhase === 'selecting_piece' && state.moveOptions.length === 0 && !currentPlayer.isAI && isLocalTurn;
-  const showMoveOptions = state.turnPhase === 'selecting_piece' && state.moveOptions.length > 1 && !currentPlayer.isAI && isLocalTurn;
+  const isLocalTurn = isSpectator ? false : (localPlayerId ? currentPlayer.id === localPlayerId : true);
+  const canRoll = state.turnPhase === 'waiting_for_roll' && !currentPlayer.isAI && isLocalTurn && !isSpectator;
+  const canPass = state.turnPhase === 'selecting_piece' && state.moveOptions.length === 0 && !currentPlayer.isAI && isLocalTurn && !isSpectator;
+  const showMoveOptions = state.turnPhase === 'selecting_piece' && state.moveOptions.length > 1 && !currentPlayer.isAI && isLocalTurn && !isSpectator;
 
   // Turn timer
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
@@ -247,6 +251,13 @@ export default function GameScreen({
         <SoundToggle />
       </div>
 
+      {/* Spectator badge */}
+      {isSpectator && (
+        <div className="absolute top-4 left-4 z-30 glass-panel rounded-lg px-3 py-1.5 border border-[#C4A35A]/30">
+          <span className="text-[#C4A35A] text-sm font-medium">Spectating</span>
+        </div>
+      )}
+
       {/* Left panel: player info (desktop) */}
       <div className="hidden lg:flex flex-col gap-2 w-48">
         {state.players.slice(0, Math.ceil(state.players.length / 2)).map((p, i) => (
@@ -275,13 +286,13 @@ export default function GameScreen({
         />
 
         {/* Mobile player panels */}
-        <div className="flex lg:hidden gap-2 w-full overflow-x-auto">
+        <div className="flex lg:hidden gap-2 w-full overflow-x-auto snap-x snap-mandatory scrollbar-hide">
           {state.players.map((p, i) => {
             const isActive = state.currentPlayerIndex === i;
             return (
               <div
                 key={p.id}
-                className="flex-shrink-0 w-40"
+                className="flex-shrink-0 w-40 snap-center"
                 ref={el => {
                   if (isActive && el) {
                     el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
@@ -339,7 +350,8 @@ export default function GameScreen({
           turnCount={state.turnCount}
           onPlayAgain={onPlayAgain}
           onHome={onHome}
-          onRematch={onRematch}
+          onRematch={isSpectator ? undefined : onRematch}
+          eloChange={eloChange}
         />
       )}
     </div>

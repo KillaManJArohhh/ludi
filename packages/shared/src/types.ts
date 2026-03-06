@@ -128,4 +128,29 @@ export interface GameHistoryEntry {
   opponent: string;
   result: 'win' | 'loss';
   turns: number;
+  captures?: number;
+  eloChange?: number;
+}
+
+// Auth types
+export interface AuthUser {
+  id: string;
+  username: string;
+  displayName: string;
+  eloRating: number;
+}
+
+export interface AuthTokenPayload {
+  userId: string;
+  username: string;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  displayName: string;
+  eloRating: number;
+  gamesPlayed: number;
+  wins: number;
+  winRate: number;
 }

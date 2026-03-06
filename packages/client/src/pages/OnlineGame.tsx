@@ -58,6 +58,7 @@ export default function OnlineGame() {
   const [playerName, setPlayerName] = useState('');
   const [nameSet, setNameSet] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
+  const [eloChange, setEloChange] = useState<number | null>(null);
 
   const roomCodeRef = useRef(roomCode);
   const playerIdRef = useRef(playerId);
@@ -125,6 +126,10 @@ export default function OnlineGame() {
       setChatMessages(prev => [...prev, msg]);
     });
 
+    socket.on('game:stats_updated', (data: { eloChange: number }) => {
+      setEloChange(data.eloChange);
+    });
+
     return () => {
       socket.off('reconnect:success');
       socket.off('reconnect:failed');
@@ -132,6 +137,7 @@ export default function OnlineGame() {
       socket.off('game:started');
       socket.off('game:state_update');
       socket.off('chat:message');
+      socket.off('game:stats_updated');
       disconnectSocket();
     };
   }, []);
@@ -314,6 +320,7 @@ export default function OnlineGame() {
           onHome={() => navigate('/')}
           localPlayerId={playerId}
           onRematch={handleRematch}
+          eloChange={eloChange}
         />
         <ChatPanel
           messages={chatMessages}

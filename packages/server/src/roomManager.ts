@@ -6,6 +6,7 @@ export interface Room {
   hostId: string;
   config: GameConfig;
   players: Map<string, { socketId: string; player: Player }>;
+  spectators: Map<string, { socketId: string; name: string }>;
   gameState: GameState | null;
   createdAt: number;
   status: 'waiting' | 'playing' | 'finished';
@@ -33,6 +34,7 @@ export function createRoom(hostId: string, socketId: string, config: GameConfig,
     hostId,
     config,
     players: new Map(),
+    spectators: new Map(),
     gameState: null,
     createdAt: Date.now(),
     status: 'waiting',
@@ -134,6 +136,45 @@ export function listOpenRooms(): { code: string; playerCount: number; maxPlayers
         playerCount: room.players.size,
         maxPlayers: room.config.playerCount,
         config: room.config,
+      });
+    }
+  }
+  return result;
+}
+
+export function addSpectator(code: string, spectatorId: string, socketId: string, name: string): Room | null {
+  const room = rooms.get(code);
+  if (!room || room.status !== 'playing') return null;
+  room.spectators.set(spectatorId, { socketId, name });
+  return room;
+}
+
+export function removeSpectator(code: string, spectatorId: string): void {
+  const room = rooms.get(code);
+  if (room) {
+    room.spectators.delete(spectatorId);
+  }
+}
+
+export function removeSpectatorBySocket(socketId: string): void {
+  for (const [, room] of rooms) {
+    for (const [specId, spec] of room.spectators) {
+      if (spec.socketId === socketId) {
+        room.spectators.delete(specId);
+      }
+    }
+  }
+}
+
+export function listActiveGames(): { code: string; players: { name: string; colors: string[] }[]; turnCount: number; spectatorCount: number }[] {
+  const result: { code: string; players: { name: string; colors: string[] }[]; turnCount: number; spectatorCount: number }[] = [];
+  for (const [code, room] of rooms) {
+    if (room.status === 'playing' && room.gameState) {
+      result.push({
+        code,
+        players: room.gameState.players.map(p => ({ name: p.name, colors: p.colors })),
+        turnCount: room.gameState.turnCount,
+        spectatorCount: room.spectators.size,
       });
     }
   }

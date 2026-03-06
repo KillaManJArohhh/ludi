@@ -170,7 +170,7 @@ export default function LudiBoard({ state, onSelectMove, interactive = true, not
     <svg
       viewBox={`0 0 ${BOARD_SIZE} ${BOARD_SIZE}`}
       className="w-full max-w-[520px] mx-auto"
-      style={{ touchAction: 'manipulation' }}
+      style={{ touchAction: 'manipulation', minWidth: 280 }}
     >
       {/* Layer 1: Wood background */}
       <BoardBackground />

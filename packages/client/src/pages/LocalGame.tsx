@@ -1,9 +1,11 @@
-import { useState, useReducer, useCallback } from 'react';
+import { useState, useReducer, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
-import type { GameConfig, Player, MoveOption } from '@ludi/shared';
+import type { GameConfig, Player, MoveOption, PlayerStats } from '@ludi/shared';
 import { gameReducer, createGameState, createPlayers } from '@ludi/shared';
 import GameSetup from '../components/game/GameSetup.js';
 import GameScreen from '../components/game/GameScreen.js';
+
+const STATS_KEY = 'ludi-stats';
 
 type PageState = 'setup' | 'playing';
 
@@ -41,7 +43,47 @@ export default function LocalGame() {
     dispatch({ type: 'PASS_TURN' });
   }, []);
 
+  // Save game result to localStorage when game ends
+  const savedRef = useRef(false);
+  useEffect(() => {
+    if (!gameState.winner || savedRef.current) return;
+    savedRef.current = true;
+
+    try {
+      const raw = localStorage.getItem(STATS_KEY);
+      const stats: PlayerStats = raw ? JSON.parse(raw) : {
+        gamesPlayed: 0, wins: 0, losses: 0,
+        totalCaptures: 0, totalLocksFormed: 0, gameHistory: [],
+      };
+
+      const humanPlayer = gameState.players.find(p => !p.isAI);
+      if (!humanPlayer) return;
+
+      const isWin = gameState.winner === humanPlayer.id;
+      const opponent = gameState.players.find(p => p.id === gameState.winner && p.id !== humanPlayer.id);
+
+      stats.gamesPlayed++;
+      if (isWin) stats.wins++;
+      else stats.losses++;
+
+      stats.gameHistory.push({
+        date: new Date().toLocaleDateString(),
+        opponent: isWin ? 'AI' : (opponent?.name || 'AI'),
+        result: isWin ? 'win' : 'loss',
+        turns: gameState.turnCount,
+      });
+
+      // Keep last 50 games
+      if (stats.gameHistory.length > 50) {
+        stats.gameHistory = stats.gameHistory.slice(-50);
+      }
+
+      localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+    } catch {}
+  }, [gameState.winner, gameState.players, gameState.turnCount]);
+
   const handlePlayAgain = useCallback(() => {
+    savedRef.current = false;
     dispatch({
       type: 'RESET',
       config: gameState.config,

@@ -99,7 +99,7 @@ export default function DiceArea({ state, onRoll, onPass, canRoll, canPass, time
           <button
             onClick={handleRoll}
             disabled={rolling}
-            className="btn-primary px-8 py-2.5 rounded-lg text-white font-bold text-sm tracking-wide
+            className="btn-primary px-8 py-2.5 min-h-[48px] rounded-lg text-white font-bold text-sm tracking-wide
                        disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {rolling ? 'Rolling...' : 'Roll Dice'}
@@ -108,7 +108,7 @@ export default function DiceArea({ state, onRoll, onPass, canRoll, canPass, time
         {canPass && (
           <button
             onClick={onPass}
-            className="btn-secondary px-5 py-2.5 rounded-lg text-[#C4A35A]/70 font-medium text-sm
+            className="btn-secondary px-5 py-2.5 min-h-[48px] rounded-lg text-[#C4A35A]/70 font-medium text-sm
                        hover:text-[#C4A35A] transition-colors"
           >
             Pass Turn

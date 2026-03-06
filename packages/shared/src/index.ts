@@ -5,3 +5,4 @@ export * from './dice.js';
 export * from './moves.js';
 export * from './engine.js';
 export * from './ai.js';
+export * from './elo.js';

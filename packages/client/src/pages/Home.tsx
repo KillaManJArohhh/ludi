@@ -1,14 +1,30 @@
 import { useNavigate } from 'react-router';
+import { useAuth } from '../context/AuthContext.js';
 import SoundToggle from '../components/ui/SoundToggle.js';
+import InstallPrompt from '../components/ui/InstallPrompt.js';
+import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
 
 export default function Home() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isOnline = useOnlineStatus();
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 relative overflow-hidden">
       {/* Sound toggle */}
       <div className="absolute top-4 right-4 z-30">
         <SoundToggle />
+      </div>
+
+      {/* Account button */}
+      <div className="absolute top-4 left-4 z-30">
+        <button
+          onClick={() => navigate('/account')}
+          className="text-[#C4A35A]/50 text-sm font-medium hover:text-[#C4A35A] transition-colors
+                     glass-panel rounded-lg px-3 py-1.5"
+        >
+          {user ? user.displayName : 'Account'}
+        </button>
       </div>
 
       {/* Ambient glow effects */}
@@ -54,9 +70,20 @@ export default function Home() {
 
         <button
           onClick={() => navigate('/online')}
-          className="btn-secondary py-4 rounded-xl text-[#C4A35A] font-semibold text-base tracking-wide"
+          disabled={!isOnline}
+          className="btn-secondary py-4 rounded-xl text-[#C4A35A] font-semibold text-base tracking-wide
+                     disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Play Online
+        </button>
+
+        <button
+          onClick={() => navigate('/spectate')}
+          disabled={!isOnline}
+          className="btn-secondary py-4 rounded-xl text-[#C4A35A] font-semibold text-base tracking-wide
+                     disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Watch Games
         </button>
 
         <button
@@ -74,6 +101,8 @@ export default function Home() {
           Statistics
         </button>
       </div>
+
+      <InstallPrompt />
 
       {/* Footer */}
       <p className="text-[#5C3D0E]/60 text-xs mt-16 tracking-widest uppercase font-medium">

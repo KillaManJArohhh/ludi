@@ -7,9 +7,10 @@ interface GameOverModalProps {
   onPlayAgain: () => void;
   onHome: () => void;
   onRematch?: () => void;
+  eloChange?: number | null;
 }
 
-export default function GameOverModal({ winner, turnCount, onPlayAgain, onHome, onRematch }: GameOverModalProps) {
+export default function GameOverModal({ winner, turnCount, onPlayAgain, onHome, onRematch, eloChange }: GameOverModalProps) {
   const primaryColor = COLOR_HEX[winner.colors[0]];
 
   return (
@@ -65,9 +66,17 @@ export default function GameOverModal({ winner, turnCount, onPlayAgain, onHome, 
           </span>
         </div>
 
-        <p className="text-[#C4A35A]/50 text-sm mb-8 font-medium">
+        <p className="text-[#C4A35A]/50 text-sm mb-2 font-medium">
           Won in {turnCount} turns
         </p>
+
+        {eloChange !== null && eloChange !== undefined && (
+          <p className={`text-sm font-bold mb-6 ${eloChange > 0 ? 'text-[#009B3A]' : eloChange < 0 ? 'text-red-400' : 'text-[#C4A35A]/50'}`}>
+            ELO: {eloChange > 0 ? '+' : ''}{eloChange}
+          </p>
+        )}
+
+        {(eloChange === null || eloChange === undefined) && <div className="mb-6" />}
 
         <div className="flex gap-3 justify-center">
           {onRematch && (
