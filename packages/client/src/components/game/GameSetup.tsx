@@ -153,61 +153,78 @@ export default function GameSetup({ onStart, onBack }: GameSetupProps) {
       </div>
 
       {/* Player Slots */}
-      <div className="mb-8 space-y-2">
+      <div className="mb-8 space-y-3">
         <label className="block text-xs text-[#C4A35A]/80 mb-2 font-semibold tracking-wide uppercase">
           Players
         </label>
         {Array.from({ length: slotsToShow }, (_, i) => (
           <div
             key={i}
-            className="flex items-center gap-2.5 glass-panel rounded-lg p-2.5 border border-[#C4A35A]/25"
+            className="glass-panel rounded-xl p-3 border border-[#C4A35A]/25"
           >
-            <div className="flex gap-1">
-              {slotColors[i].map(color => (
-                <div
-                  key={color}
-                  className="w-4 h-4 rounded-full border border-white/20"
-                  style={{
-                    backgroundColor: COLOR_HEX[color],
-                    boxShadow: `0 0 6px ${COLOR_HEX[color]}40`,
-                  }}
-                />
-              ))}
+            <div className="flex items-center gap-2.5 mb-2">
+              <div className="flex gap-1">
+                {slotColors[i].map(color => (
+                  <div
+                    key={color}
+                    className="w-4 h-4 rounded-full border border-white/20"
+                    style={{
+                      backgroundColor: COLOR_HEX[color],
+                      boxShadow: `0 0 6px ${COLOR_HEX[color]}40`,
+                    }}
+                  />
+                ))}
+              </div>
+              <input
+                type="text"
+                value={playerNames[i]}
+                onChange={e => {
+                  const next = [...playerNames];
+                  next[i] = e.target.value;
+                  setPlayerNames(next);
+                }}
+                className="flex-1 bg-transparent text-sm text-[#f0ece4] outline-none px-2 py-1
+                           placeholder:text-[#C4A35A]/40 border-b border-[#C4A35A]/15 focus:border-[#C4A35A]/40"
+                placeholder={`Player ${i + 1}`}
+              />
             </div>
-            <input
-              type="text"
-              value={playerNames[i]}
-              onChange={e => {
-                const next = [...playerNames];
-                next[i] = e.target.value;
-                setPlayerNames(next);
-              }}
-              className="flex-1 bg-transparent text-sm text-[#f0ece4] outline-none px-2 py-1
-                         placeholder:text-[#C4A35A]/40 border-b border-[#C4A35A]/15 focus:border-[#C4A35A]/40"
-              placeholder={`Player ${i + 1}`}
-            />
-            <button
-              onClick={() => toggleAI(i)}
-              className={`text-[10px] px-2.5 py-1 rounded font-semibold tracking-wide transition-all
-                ${aiSettings[i] !== null
-                  ? 'bg-[#C4A35A]/20 text-[#FED100] border border-[#C4A35A]/30'
-                  : 'bg-white/[0.08] text-[#f0ece4]/60 border border-[#C4A35A]/20 hover:bg-white/[0.12] hover:text-[#f0ece4]/80'
-                }`}
-            >
-              {aiSettings[i] !== null ? 'AI' : 'Human'}
-            </button>
-            {aiSettings[i] !== null && (
-              <select
-                value={aiSettings[i]!}
-                onChange={e => setAIDifficulty(i, e.target.value as AIDifficulty)}
-                className="text-[10px] bg-white/[0.1] text-[#f0ece4]/90 rounded px-2 py-1
-                           outline-none border border-[#C4A35A]/25"
-              >
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-              </select>
-            )}
+            {/* Human / AI toggle */}
+            <div className="flex items-center gap-2">
+              <div className="flex rounded-lg overflow-hidden border border-[#C4A35A]/25">
+                <button
+                  onClick={() => { const next = [...aiSettings]; next[i] = null; setAiSettings(next); }}
+                  className={`px-4 py-1.5 text-xs font-semibold tracking-wide transition-all
+                    ${aiSettings[i] === null
+                      ? 'bg-[#009B3A]/30 text-[#86EFAC] border-r border-[#C4A35A]/25'
+                      : 'bg-white/[0.04] text-[#f0ece4]/40 border-r border-[#C4A35A]/25 hover:bg-white/[0.08] hover:text-[#f0ece4]/60'
+                    }`}
+                >
+                  Human
+                </button>
+                <button
+                  onClick={() => { const next = [...aiSettings]; next[i] = next[i] ?? 'medium'; setAiSettings(next); }}
+                  className={`px-4 py-1.5 text-xs font-semibold tracking-wide transition-all
+                    ${aiSettings[i] !== null
+                      ? 'bg-[#C4A35A]/20 text-[#FED100]'
+                      : 'bg-white/[0.04] text-[#f0ece4]/40 hover:bg-white/[0.08] hover:text-[#f0ece4]/60'
+                    }`}
+                >
+                  Computer
+                </button>
+              </div>
+              {aiSettings[i] !== null && (
+                <select
+                  value={aiSettings[i]!}
+                  onChange={e => setAIDifficulty(i, e.target.value as AIDifficulty)}
+                  className="text-xs bg-white/[0.1] text-[#f0ece4]/90 rounded-lg px-3 py-1.5
+                             outline-none border border-[#C4A35A]/25"
+                >
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              )}
+            </div>
           </div>
         ))}
       </div>

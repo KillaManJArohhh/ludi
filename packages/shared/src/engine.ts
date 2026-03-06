@@ -98,13 +98,9 @@ function handleRollDice(state: GameState, presetValues?: number[]): GameState {
   const moveOptions = computeMoveOptions(newState);
   newState.moveOptions = moveOptions;
 
-  // If no moves available, auto-pass
+  // If no moves, update lastAction but keep dice visible for UI
   if (moveOptions.length === 0) {
-    return handlePassTurn({
-      ...newState,
-      turnPhase: 'turn_complete',
-      lastAction: `Rolled ${diceResult.values.join(', ')} — no moves available`,
-    });
+    newState.lastAction = `Rolled ${diceResult.values.join(', ')} — no moves available`;
   }
 
   return newState;

@@ -60,6 +60,25 @@ export function startTurnTimer(io: Server, roomCode: string) {
     currentRoom.gameState = newState;
     io.to(roomCode).emit('game:state_update', newState);
 
+    // If rolled and no moves, broadcast dice then auto-pass after delay
+    if (newState.turnPhase === 'selecting_piece' && newState.moveOptions.length === 0) {
+      setTimeout(() => {
+        const r = getRoom(roomCode);
+        if (!r?.gameState || r.gameState.turnPhase !== 'selecting_piece') return;
+        if (r.gameState.moveOptions.length > 0) return;
+        const passedState = gameReducer(r.gameState, { type: 'PASS_TURN' });
+        r.gameState = passedState;
+        io.to(roomCode).emit('game:state_update', passedState);
+        if (passedState.winner) {
+          io.to(roomCode).emit('game:ended', { winnerId: passedState.winner });
+          handleGameEnd(io, roomCode);
+        } else {
+          startTurnTimer(io, roomCode);
+        }
+      }, 1500);
+      return;
+    }
+
     if (newState.winner) {
       io.to(roomCode).emit('game:ended', { winnerId: newState.winner });
       handleGameEnd(io, roomCode);
@@ -158,6 +177,27 @@ export function setupGameSync(io: Server) {
         values: newState.diceValues,
         playerId: newState.players[newState.currentPlayerIndex]?.id,
       });
+
+      // Auto-pass after delay if no moves available (so clients see the dice values)
+      if (newState.turnPhase === 'selecting_piece' && newState.moveOptions.length === 0) {
+        setTimeout(() => {
+          const r = getRoom(roomCode);
+          if (!r?.gameState || r.gameState.turnPhase !== 'selecting_piece') return;
+          if (r.gameState.moveOptions.length > 0) return;
+          const passedState = gameReducer(r.gameState, { type: 'PASS_TURN' });
+          r.gameState = passedState;
+          io.to(roomCode).emit('game:state_update', passedState);
+          if (passedState.winner) {
+            clearTurnTimer(roomCode);
+            io.to(roomCode).emit('game:ended', { winnerId: passedState.winner });
+            handleGameEnd(io, roomCode);
+          } else {
+            startTurnTimer(io, roomCode);
+          }
+        }, 1500);
+        return;
+      }
+
       startTurnTimer(io, roomCode);
     });
 

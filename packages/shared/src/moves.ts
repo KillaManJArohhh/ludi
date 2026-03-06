@@ -414,6 +414,17 @@ export function computeMoveOptions(state: GameState): MoveOption[] {
     }
   }
 
+  // Enforce compulsory maximum dice usage: must use both dice if possible
+  if (options.length > 0 && diceRemaining.length > 1) {
+    const maxUsed = Math.max(...options.map(o => o.diceUsed.length));
+    if (maxUsed > 1) {
+      const filtered = options.filter(o => o.diceUsed.length === maxUsed);
+      if (filtered.length > 0) {
+        return deduplicateOptions(filtered);
+      }
+    }
+  }
+
   // Deduplicate options
   return deduplicateOptions(options);
 }

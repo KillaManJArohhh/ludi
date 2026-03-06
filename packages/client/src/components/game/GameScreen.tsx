@@ -110,13 +110,17 @@ export default function GameScreen({
   const notifTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const prevLastActionRef = useRef<string | null>(null);
   const prevPlayerIndexRef = useRef<number>(state.currentPlayerIndex);
+  const prevColorIndexRef = useRef<number>(state.currentColorIndex);
 
   // Roll notification — triggered by DiceArea after dice finish animating
   const handleDiceSettled = useCallback((values: number[]) => {
     const player = state.players[state.currentPlayerIndex];
     if (!player || values.length === 0) return;
-    const color = COLOR_HEX[player.colors[0]];
-    const pColor = player.colors[0];
+    // Use active color (handles 2-player mode where a player has 2 colors)
+    const activeColor = player.colors.length > 1
+      ? player.colors[state.currentColorIndex]
+      : player.colors[0];
+    const color = COLOR_HEX[activeColor];
     const noMoves = state.turnPhase === 'selecting_piece' && state.moveOptions.length === 0;
 
     clearTimeout(notifTimerRef.current);
@@ -124,27 +128,32 @@ export default function GameScreen({
       type: noMoves ? 'no_moves' : 'roll',
       playerName: player.name,
       color,
-      playerColor: pColor,
+      playerColor: activeColor,
       message: `${player.name} rolled`,
       detail: noMoves ? 'No moves available' : undefined,
       diceValues: values,
     });
     notifTimerRef.current = setTimeout(() => setNotification(null), 2000);
-  }, [state.players, state.currentPlayerIndex, state.turnPhase, state.moveOptions.length]);
+  }, [state.players, state.currentPlayerIndex, state.currentColorIndex, state.turnPhase, state.moveOptions.length]);
 
   // Watch lastAction changes for capture/home notifications (not rolls)
   useEffect(() => {
     const lastAction = state.lastAction;
     if (lastAction === prevLastActionRef.current) return;
     const playerIndex = prevPlayerIndexRef.current;
+    const colorIndex = prevColorIndexRef.current;
     prevLastActionRef.current = lastAction;
     prevPlayerIndexRef.current = state.currentPlayerIndex;
+    prevColorIndexRef.current = state.currentColorIndex;
     if (!lastAction) return;
 
     const player = state.players[playerIndex];
     if (!player) return;
-    const color = COLOR_HEX[player.colors[0]];
-    const pColor = player.colors[0];
+    const activeColor = player.colors.length > 1
+      ? player.colors[colorIndex]
+      : player.colors[0];
+    const color = COLOR_HEX[activeColor];
+    const pColor = activeColor;
 
     // Capture notification
     if (lastAction.includes('captured')) {
@@ -177,7 +186,20 @@ export default function GameScreen({
       notifTimerRef.current = setTimeout(() => setNotification(null), 2500);
       return;
     }
-  }, [state.lastAction, state.currentPlayerIndex, state.players]);
+  }, [state.lastAction, state.currentPlayerIndex, state.currentColorIndex, state.players]);
+
+  // Auto-pass for human player when no moves available (delayed to show dice values)
+  useEffect(() => {
+    if (currentPlayer.isAI || state.winner || isSpectator) return;
+    if (!isLocalTurn) return;
+    if (state.turnPhase !== 'selecting_piece') return;
+    if (state.moveOptions.length > 0) return;
+
+    const timer = setTimeout(() => {
+      onPass();
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [currentPlayer.isAI, isLocalTurn, state.winner, state.turnPhase, state.moveOptions.length, onPass, isSpectator]);
 
   // AI turn handling (skip in online mode — server handles AI)
   useEffect(() => {
@@ -197,7 +219,7 @@ export default function GameScreen({
 
     if (state.turnPhase === 'selecting_piece') {
       if (state.moveOptions.length === 0) {
-        const timer = setTimeout(() => onPass(), 500);
+        const timer = setTimeout(() => onPass(), 1200);
         return () => clearTimeout(timer);
       }
 
