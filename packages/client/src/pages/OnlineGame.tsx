@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import type { GameState, GameConfig, MoveOption, ChatMessage, Player } from '@ludi/shared';
 import { getSocket, connectSocket, disconnectSocket } from '../services/socketService.js';
+import { useAuth } from '../context/AuthContext.js';
 import LobbyScreen from '../components/lobby/LobbyScreen.js';
 import WaitingRoom from '../components/lobby/WaitingRoom.js';
 import GameScreen from '../components/game/GameScreen.js';
@@ -39,6 +40,7 @@ function clearSession() {
 
 export default function OnlineGame() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [phase, setPhase] = useState<Phase>('lobby');
   const [roomCode, setRoomCode] = useState('');
   const [playerId, setPlayerId] = useState('');
@@ -55,8 +57,8 @@ export default function OnlineGame() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatOpen, setChatOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [playerName, setPlayerName] = useState('');
-  const [nameSet, setNameSet] = useState(false);
+  const [playerName, setPlayerName] = useState(user?.displayName || '');
+  const [nameSet, setNameSet] = useState(!!user);
   const [reconnecting, setReconnecting] = useState(false);
   const [eloChange, setEloChange] = useState<number | null>(null);
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { GameConfig, Player, Color, AIDifficulty } from '@ludi/shared';
 import { PLAYER_COLORS, COLOR_HEX, createPlayers } from '@ludi/shared';
+import { useAuth } from '../../context/AuthContext.js';
 
 interface GameSetupProps {
   onStart: (config: GameConfig, players: Player[]) => void;
@@ -8,13 +9,14 @@ interface GameSetupProps {
 }
 
 export default function GameSetup({ onStart, onBack }: GameSetupProps) {
+  const { user } = useAuth();
   const [playerCount, setPlayerCount] = useState<2 | 4>(4);
   const [diceMode, setDiceMode] = useState<'single' | 'double'>('double');
   const [lockKillsLock, setLockKillsLock] = useState(false);
   const [teamSharing, setTeamSharing] = useState(false);
   const [turnTimer, setTurnTimer] = useState(0);
 
-  const [playerNames, setPlayerNames] = useState(['Player 1', 'Player 2', 'Player 3', 'Player 4']);
+  const [playerNames, setPlayerNames] = useState([user?.displayName || 'Player 1', 'Player 2', 'Player 3', 'Player 4']);
   const [aiSettings, setAiSettings] = useState<(AIDifficulty | null)[]>([null, null, null, null]);
 
   const handleStart = () => {
