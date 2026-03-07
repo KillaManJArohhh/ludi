@@ -7,6 +7,8 @@ import Stats from './pages/Stats.js';
 import Rules from './pages/Rules.js';
 import Account from './pages/Account.js';
 import Spectate from './pages/Spectate.js';
+import ForgotPassword from './pages/ForgotPassword.js';
+import ResetPassword from './pages/ResetPassword.js';
 
 export default function App() {
   return (
@@ -19,6 +21,8 @@ export default function App() {
         <Route path="/rules" element={<Rules />} />
         <Route path="/account" element={<Account />} />
         <Route path="/spectate" element={<Spectate />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
       </Routes>
     </AuthProvider>
   );

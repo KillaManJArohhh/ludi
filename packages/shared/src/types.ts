@@ -138,6 +138,7 @@ export interface AuthUser {
   username: string;
   displayName: string;
   eloRating: number;
+  email?: string;
 }
 
 export interface AuthTokenPayload {

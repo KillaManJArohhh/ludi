@@ -9,8 +9,11 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<{ error?: string }>;
-  register: (username: string, password: string, displayName: string) => Promise<{ error?: string }>;
+  register: (username: string, password: string, displayName: string, email?: string) => Promise<{ error?: string }>;
   logout: () => void;
+  forgotPassword: (email: string) => Promise<{ error?: string; message?: string }>;
+  resetPassword: (token: string, password: string) => Promise<{ error?: string; message?: string }>;
+  updateUserEmail: (email: string) => Promise<{ error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -61,12 +64,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const register = useCallback(async (username: string, password: string, displayName: string): Promise<{ error?: string }> => {
+  const register = useCallback(async (username: string, password: string, displayName: string, email?: string): Promise<{ error?: string }> => {
     try {
       const res = await fetch(`${API_BASE}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, displayName }),
+        body: JSON.stringify({ username, password, displayName, email: email || undefined }),
       });
       const data = await res.json();
       if (!res.ok) return { error: data.error || 'Registration failed' };
@@ -86,8 +89,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const forgotPassword = useCallback(async (email: string): Promise<{ error?: string; message?: string }> => {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { error: data.error || 'Request failed' };
+      return { message: data.message };
+    } catch {
+      return { error: 'Network error' };
+    }
+  }, []);
+
+  const resetPassword = useCallback(async (resetToken: string, password: string): Promise<{ error?: string; message?: string }> => {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: resetToken, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { error: data.error || 'Reset failed' };
+      return { message: data.message };
+    } catch {
+      return { error: 'Network error' };
+    }
+  }, []);
+
+  const updateUserEmail = useCallback(async (email: string): Promise<{ error?: string }> => {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/update-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { error: data.error || 'Update failed' };
+      setUser(data.user);
+      return {};
+    } catch {
+      return { error: 'Network error' };
+    }
+  }, [token]);
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, forgotPassword, resetPassword, updateUserEmail }}>
       {children}
     </AuthContext.Provider>
   );

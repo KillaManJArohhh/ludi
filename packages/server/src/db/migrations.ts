@@ -39,6 +39,16 @@ const migrations: Migration[] = [
       CREATE INDEX idx_game_results_created ON game_results(created_at);
     `,
   },
+  {
+    version: 2,
+    description: 'Add email and password reset columns to users',
+    sql: `
+      ALTER TABLE users ADD COLUMN email TEXT;
+      ALTER TABLE users ADD COLUMN password_reset_token TEXT;
+      ALTER TABLE users ADD COLUMN password_reset_expires INTEGER;
+      CREATE UNIQUE INDEX idx_users_email ON users(email) WHERE email IS NOT NULL;
+    `,
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {
