@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.etsy.com)",
+      "Bash(dir:*)",
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "WebSearch",
+      "WebFetch(domain:www.ludi4life.com)",
+      "WebFetch(domain:connectingjamaica.com)",
+      "WebFetch(domain:www.my-island-jamaica.com)",
+      "WebFetch(domain:caribbeanludi.weebly.com)",
+      "Bash(npx:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(timeout /t 3 /nobreak)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(timeout:*)",
+      "Bash(Select-String -NotMatch \"composite\")",
+      "mcp__ide__getDiagnostics",
+      "Bash(git rm:*)",
+      "Bash(git commit:*)",
+      "Bash(gh auth status:*)",
+      "Bash(gh repo create:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(gh repo edit:*)",
+      "Bash(git log:*)",
+      "Bash(git -C C:UserskwesigProjectsludi status)",
+      "Bash(git status:*)",
+      "Bash(git fetch:*)"
+    ]
+  }
+}
