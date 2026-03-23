@@ -1,11 +1,25 @@
 import { useState, useReducer, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
-import type { GameConfig, Player, MoveOption, PlayerStats } from '@ludi/shared';
+import type { GameConfig, Player, MoveOption, PlayerStats, GameState } from '@ludi/shared';
 import { gameReducer, createGameState, createPlayers } from '@ludi/shared';
 import GameSetup from '../components/game/GameSetup.js';
 import GameScreen from '../components/game/GameScreen.js';
 
 const STATS_KEY = 'ludi-stats';
+
+const SAVE_KEY = 'ludi-local-save';
+
+function loadSavedGame(): GameState | null {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const state = JSON.parse(raw) as GameState;
+    if (!state.players || !state.pieces) return null;
+    return state;
+  } catch {
+    return null;
+  }
+}
 
 type PageState = 'setup' | 'playing';
 
@@ -23,10 +37,19 @@ export default function LocalGame() {
 
   const [gameState, dispatch] = useReducer(
     gameReducer,
-    createGameState(defaultConfig, createPlayers(defaultConfig))
+    defaultConfig,
+    (cfg) => loadSavedGame() ?? createGameState(cfg, createPlayers(cfg))
   );
 
+  const [hasSave, setHasSave] = useState(() => localStorage.getItem(SAVE_KEY) !== null);
+
+  const handleResume = useCallback(() => {
+    setPageState('playing');
+  }, []);
+
   const handleStart = useCallback((config: GameConfig, players: Player[]) => {
+    localStorage.removeItem(SAVE_KEY);
+    setHasSave(false);
     dispatch({ type: 'RESET', config, players });
     setPageState('playing');
   }, []);
@@ -82,6 +105,20 @@ export default function LocalGame() {
     } catch {}
   }, [gameState.winner, gameState.players, gameState.turnCount]);
 
+  // Autosave: persist game state to localStorage while playing
+  useEffect(() => {
+    if (pageState !== 'playing') return;
+    if (gameState.winner !== null) {
+      localStorage.removeItem(SAVE_KEY);
+      return;
+    }
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
+    } catch {
+      // Silently ignore storage quota errors
+    }
+  }, [gameState, pageState]);
+
   const handlePlayAgain = useCallback(() => {
     savedRef.current = false;
     dispatch({
@@ -92,7 +129,7 @@ export default function LocalGame() {
   }, [gameState.config, gameState.players]);
 
   if (pageState === 'setup') {
-    return <GameSetup onStart={handleStart} onBack={() => navigate('/')} />;
+    return <GameSetup onStart={handleStart} onBack={() => navigate('/')} hasSave={hasSave} onResume={handleResume} />;
   }
 
   return (

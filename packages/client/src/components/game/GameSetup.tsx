@@ -8,9 +8,11 @@ const GUEST_NAME_KEY = 'ludi-guest-name';
 interface GameSetupProps {
   onStart: (config: GameConfig, players: Player[]) => void;
   onBack: () => void;
+  hasSave?: boolean;
+  onResume?: () => void;
 }
 
-export default function GameSetup({ onStart, onBack }: GameSetupProps) {
+export default function GameSetup({ onStart, onBack, hasSave, onResume }: GameSetupProps) {
   const { user } = useAuth();
   const [playerCount, setPlayerCount] = useState<2 | 4>(4);
   const [diceMode, setDiceMode] = useState<'single' | 'double'>('double');
@@ -242,6 +244,16 @@ export default function GameSetup({ onStart, onBack }: GameSetupProps) {
       </div>
 
       {/* Action buttons */}
+      {hasSave && onResume && (
+        <button
+          onClick={onResume}
+          className="w-full py-3 mb-3 rounded-lg font-bold tracking-wide
+                     bg-[#C4A35A]/20 text-[#FED100] border border-[#C4A35A]/40
+                     hover:bg-[#C4A35A]/30 transition-all"
+        >
+          Resume Saved Game
+        </button>
+      )}
       <div className="flex gap-3">
         <button
           onClick={onBack}
