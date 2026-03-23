@@ -178,6 +178,7 @@ export const voiceChat = {
     localPlayerId = '';
     currentRoomCode = '';
     notifyCount();
+    participantCountCb = null;
   },
 
   setMuted(value: boolean): void {
