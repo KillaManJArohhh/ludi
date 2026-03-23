@@ -32,7 +32,7 @@ When a user is not signed in, remember the name they entered for Player 1 in loc
 - If no saved name exists, fall back to `'Player 1'` as before
 
 **On start:**
-- In `handleStart`, if `user` is null and Player 1 is configured as Human, write `playerNames[0]` to `localStorage` under `ludi-guest-name`
+- In `handleStart`, if `user` is null and Player 1 is configured as Human (`aiSettings[0] === null`), write `playerNames[0]` to `localStorage` under `ludi-guest-name`
 
 ### Unchanged
 - Signed-in users continue to use `user.displayName` as the default — no change to their flow.
@@ -51,17 +51,24 @@ Save the in-progress local game state to `localStorage` after every action so pl
 
 ### Changes — `packages/client/src/pages/LocalGame.tsx`
 
-**Saving:**
-- After the reducer processes any of `ROLL_DICE`, `SELECT_MOVE`, or `PASS_TURN`, write the resulting `gameState` to `ludi-local-save`
-- Implemented by wrapping the dispatch: call `dispatch(action)`, then in a `useEffect` keyed on `gameState`, write to storage (excluding `winner !== null` and `pageState === 'setup'` states)
+**Initialization (synchronous):**
+- The `useReducer` initializer function reads `ludi-local-save` synchronously from `localStorage` on component mount.
+- If a valid saved state is found, the reducer is initialized with it; otherwise it uses the default `createGameState(defaultConfig, createPlayers(defaultConfig))`.
+- This makes the saved state available immediately and safely before any render.
 
-**Clearing:**
-- When a winner is declared (`gameState.winner !== null`), delete `ludi-local-save`
-- When the user explicitly starts a new game via "Start Game" on the setup screen (not Resume), delete `ludi-local-save`
+**Saving:**
+- A `useEffect` with dependencies `[gameState, pageState]` handles persistence.
+- When `pageState === 'playing'` and `gameState.winner === null`, write `gameState` to `ludi-local-save`.
+- When `gameState.winner !== null`, delete `ludi-local-save` (game complete, no longer resumable).
+- When `pageState === 'setup'`, do nothing (avoid overwriting a valid save with an uninitialized state).
+
+**Clearing on new game:**
+- When the user clicks "Start Game" (not Resume) on the setup screen, `handleStart` deletes `ludi-local-save` before dispatching `RESET`. This ensures a fresh save slot for the new game.
 
 **Resuming:**
-- `LocalGame` checks for `ludi-local-save` on mount and passes `hasSave` + `onResume` props down to `GameSetup`
-- On resume, `LocalGame` loads the saved `GameState` via `useReducer`'s initializer, skips setup, and sets `pageState` to `'playing'`
+- `LocalGame` computes `hasSave` on mount: `hasSave = localStorage.getItem('ludi-local-save') !== null`
+- Passes `hasSave` and `onResume` as props to `GameSetup`
+- `onResume` sets `pageState` to `'playing'` immediately (state is already loaded in the reducer initializer — no async step needed, so there is no race between clicking Resume and state availability)
 
 ### Changes — `packages/client/src/components/game/GameSetup.tsx`
 
@@ -74,7 +81,7 @@ onResume?: () => void;
 **UI:**
 - When `hasSave` is true, show a "Resume Saved Game" button above "Start Game"
 - Clicking it calls `onResume()`
-- "Start Game" still works as before but clears any existing save first
+- "Start Game" still works as before but clears `ludi-local-save` first
 
 ---
 
@@ -83,13 +90,21 @@ onResume?: () => void;
 ### Goal
 Allow online players to speak to each other via their device microphone. Audio is always-on once joined; players can mute/unmute themselves at any time.
 
-### Architecture: WebRTC P2P via Socket.IO Signaling
+### Architecture: WebRTC Mesh via Socket.IO Signaling
 
-Each player establishes a direct `RTCPeerConnection` to every other player in the room. The existing Socket.IO server relays the signaling messages (SDP offers/answers and ICE candidates) only — no audio passes through the server.
+Each player establishes a direct `RTCPeerConnection` to every other player in the room (full mesh). The existing Socket.IO server relays signaling messages only — no audio passes through the server.
+
+### Signaling Role: Offer/Answer Responsibility
+
+To avoid signaling collisions, a strict rule governs who sends the offer:
+
+- **New joiner** (the player who sends `voice:join`): Sends SDP offers to **all currently connected** peers. This is determined by the server broadcasting `voice:join` to the room, and existing peers responding with answers.
+- **Existing peers** (players who receive `voice:join`): Do **not** send offers. They wait for an offer from the new joiner, then respond with an answer.
+- This ensures exactly one offer/answer exchange per pair, eliminating collision.
 
 ### New file — `packages/client/src/services/voiceChat.ts`
 
-Singleton service with the following interface:
+Singleton service. On first use, guards `typeof RTCPeerConnection === 'undefined'` and returns early if WebRTC is unsupported — all callers treat this as a silent no-op.
 
 ```ts
 connect(localPlayerId: string, remotePlayerIds: string[], roomCode: string): Promise<void>
@@ -99,13 +114,21 @@ isMuted(): boolean
 onParticipantCountChange(cb: (count: number) => void): void
 ```
 
-Internally:
-- Calls `getUserMedia({ audio: true })` on `connect`
-- Creates one `RTCPeerConnection` per remote player
-- Sends `voice:join` via Socket.IO to trigger offer/answer with others already in voice
-- Handles `voice:offer`, `voice:answer`, `voice:ice_candidate` from socket to complete handshakes
-- Attaches each remote stream to a new `Audio` element and auto-plays it
-- On `disconnect`, closes all connections and stops the local stream
+**Internal `connect` flow:**
+1. Guard: if `RTCPeerConnection` unavailable, return early
+2. Call `getUserMedia({ audio: true })` — if denied, set `isActive = false` and return
+3. Send `voice:join` via socket
+4. For each `remotePlayerId` received via the broadcast (other peers already in voice), create a `RTCPeerConnection`, add the local stream, create an SDP offer, set local description, and emit `voice:offer` with `{ roomCode, targetPlayerId: remotePlayerId, sdp }`
+5. On receiving `voice:offer`: create `RTCPeerConnection` for the offerer, set remote description, create answer, set local description, emit `voice:answer`
+6. On receiving `voice:answer`: set remote description on the existing peer connection
+7. On receiving `voice:ice_candidate`: call `addIceCandidate` on the corresponding peer connection; ignore silently if connection not found
+8. On `icecandidate` event: emit `voice:ice_candidate` with `{ roomCode, targetPlayerId, candidate }`
+9. On `track` event: attach stream to a new `Audio` element, call `.play()`
+
+**Peer teardown (player disconnect):**
+- When the socket emits `room:player_left` (existing event) or `voice:leave` (new event), the service closes the corresponding `RTCPeerConnection`, removes and GC's the `Audio` element, and decrements `participantCount`.
+
+**`setMuted(true)`:** calls `track.enabled = false` on all local audio tracks. Does not affect incoming audio from peers.
 
 ### New hook — `packages/client/src/hooks/useVoiceChat.ts`
 
@@ -118,35 +141,46 @@ useVoiceChat(roomCode: string, playerId: string, players: Player[]): {
 }
 ```
 
-- Calls `voiceChat.connect` when the game phase becomes `'playing'`
-- Calls `voiceChat.disconnect` on unmount
-- If `getUserMedia` is denied, sets `isActive = false` silently — no blocking error shown to user
-- Listens for player join/leave events to update peer connections
+- Maps `players` to `remotePlayerIds` by filtering out the local player (`p.id !== playerId`) and extracting `p.id` (the `Player.id` field from `@ludi/shared`)
+- Calls `voiceChat.connect(playerId, remotePlayerIds, roomCode)` once when mounted in the `'playing'` phase
+- Calls `voiceChat.disconnect()` on unmount
+- If `isActive` is false (WebRTC unavailable or mic denied), the hook still returns valid state — the UI simply hides the mic button
 
 ### Server changes — `packages/server/src/index.ts`
 
-Four new Socket.IO event handlers (relay only — no business logic):
+Four new Socket.IO event handlers. All relay handlers:
+1. Verify the emitting socket is a participant in `roomCode` via the existing `getPlayerIdBySocket(room, socket.id)` check (same pattern used throughout `index.ts`). Drop the message silently if not found.
+2. Look up the target's `socketId` from `playerId` using the room's player map (forward lookup: `playerId → socketId`). If the target is not found (disconnected), drop silently.
+3. Forward the payload using `io.to(targetSocketId).emit(...)`.
+
+A small helper `getSocketIdByPlayerId(room, playerId): string | null` should be added to `index.ts` (or `roomManager.ts` if a room utility module exists) to perform this forward lookup.
 
 | Event | Payload | Action |
 |---|---|---|
-| `voice:join` | `{ roomCode, playerId }` | Broadcast to room: new player ready for voice |
-| `voice:offer` | `{ roomCode, targetPlayerId, sdp }` | Forward offer to `targetPlayerId` only |
-| `voice:answer` | `{ roomCode, targetPlayerId, sdp }` | Forward answer to `targetPlayerId` only |
-| `voice:ice_candidate` | `{ roomCode, targetPlayerId, candidate }` | Forward ICE candidate to `targetPlayerId` only |
+| `voice:join` | `{ roomCode, playerId }` | Broadcast to room (excluding sender): new player ready for voice |
+| `voice:offer` | `{ roomCode, targetPlayerId, sdp }` | Forward offer to `targetPlayerId`'s socket only |
+| `voice:answer` | `{ roomCode, targetPlayerId, sdp }` | Forward answer to `targetPlayerId`'s socket only |
+| `voice:ice_candidate` | `{ roomCode, targetPlayerId, candidate }` | Forward ICE candidate to `targetPlayerId`'s socket only |
 
-All relay events use `socket.to(targetSocketId).emit(...)` — the server never inspects audio.
+`voice:leave` is not needed as a separate event — peer teardown is triggered by the existing disconnect/leave flow that already fires `room:player_left` on the client.
 
 ### UI changes — `packages/client/src/pages/OnlineGame.tsx` and `GameScreen.tsx`
 
 - `useVoiceChat` is called in `OnlineGame` when `phase === 'playing'`
-- A **mic toggle button** is added to the `GameScreen` action area (visible only in online mode)
+- A **mic toggle button** is added to `GameScreen`'s action area (visible only when `voiceMuted !== undefined`, i.e., when voice props are provided)
   - Shows mic-on / mic-off icon
   - Shows participant count: e.g. `🎙 2/4`
-- `GameScreen` receives new optional props: `voiceMuted?`, `onToggleMute?`, `voiceParticipants?`
+- `GameScreen` receives new optional props:
+  ```ts
+  voiceMuted?: boolean;
+  onToggleMute?: () => void;
+  voiceParticipants?: number;
+  ```
 
 ### Permissions
-- The browser mic permission prompt appears on first game join
-- If denied: voice is silently unavailable; the mic button is hidden
+- The browser mic permission prompt appears on the first `getUserMedia` call when the game starts
+- If denied: `isActive = false`; the mic button is hidden; no error is shown to the user
+- If WebRTC is unavailable (`typeof RTCPeerConnection === 'undefined'`): same behaviour
 - No persistent permission storage needed (browser handles this natively)
 
 ---
@@ -165,9 +199,9 @@ All relay events use `socket.to(targetSocketId).emit(...)` — the server never 
 | File | Change |
 |---|---|
 | `packages/client/src/components/game/GameSetup.tsx` | Guest name persistence + `hasSave`/`onResume` props + Resume button |
-| `packages/client/src/pages/LocalGame.tsx` | Autosave on dispatch, resume logic, clear on new game/win |
-| `packages/client/src/services/voiceChat.ts` | New — WebRTC service |
+| `packages/client/src/pages/LocalGame.tsx` | Synchronous save-state initializer, autosave effect, resume logic, clear on new game/win |
+| `packages/client/src/services/voiceChat.ts` | New — WebRTC singleton service |
 | `packages/client/src/hooks/useVoiceChat.ts` | New — voice chat hook |
 | `packages/client/src/pages/OnlineGame.tsx` | Wire up `useVoiceChat`, pass voice props to `GameScreen` |
-| `packages/client/src/components/game/GameScreen.tsx` | Mic toggle button (online only) |
-| `packages/server/src/index.ts` | Four new relay-only Socket.IO voice signaling handlers |
+| `packages/client/src/components/game/GameScreen.tsx` | Optional mic toggle button (rendered only in online mode) |
+| `packages/server/src/index.ts` | Four relay-only voice signaling handlers + `getSocketIdByPlayerId` helper |
