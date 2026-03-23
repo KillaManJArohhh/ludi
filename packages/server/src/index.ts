@@ -45,6 +45,13 @@ function getPlayerIdBySocket(room: ReturnType<typeof getRoom>, socketId: string)
   return null;
 }
 
+/** Direct lookup: find socketId for a given playerId in a room */
+function getSocketIdByPlayerId(room: ReturnType<typeof getRoom>, playerId: string): string | null {
+  if (!room) return null;
+  const entry = room.players.get(playerId);
+  return entry?.socketId ?? null;
+}
+
 // Socket.io auth middleware — extract userId from JWT if present
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
@@ -170,6 +177,63 @@ io.on('connection', (socket) => {
     io.to(roomCode).emit('room:spectator_update', {
       spectatorCount: room.spectators.size,
     });
+  });
+
+  // --- Voice signaling relay (WebRTC) ---
+  // Sender identity is always derived from the socket (not the payload) for security.
+
+  socket.on('voice:join', ({ roomCode }: { roomCode: string }) => {
+    if (!isValidRoomCode(roomCode)) return;
+    const room = getRoom(roomCode);
+    if (!room) return;
+    const senderId = getPlayerIdBySocket(room, socket.id);
+    if (!senderId) return;
+    socket.to(roomCode).emit('voice:peer_joined', { playerId: senderId });
+  });
+
+  socket.on('voice:offer', ({ roomCode, targetPlayerId, sdp }: {
+    roomCode: string;
+    targetPlayerId: string;
+    sdp: unknown;
+  }) => {
+    if (!isValidRoomCode(roomCode)) return;
+    const room = getRoom(roomCode);
+    if (!room) return;
+    const senderId = getPlayerIdBySocket(room, socket.id);
+    if (!senderId) return;
+    const targetSocketId = getSocketIdByPlayerId(room, targetPlayerId);
+    if (!targetSocketId) return;
+    io.to(targetSocketId).emit('voice:offer', { fromPlayerId: senderId, sdp });
+  });
+
+  socket.on('voice:answer', ({ roomCode, targetPlayerId, sdp }: {
+    roomCode: string;
+    targetPlayerId: string;
+    sdp: unknown;
+  }) => {
+    if (!isValidRoomCode(roomCode)) return;
+    const room = getRoom(roomCode);
+    if (!room) return;
+    const senderId = getPlayerIdBySocket(room, socket.id);
+    if (!senderId) return;
+    const targetSocketId = getSocketIdByPlayerId(room, targetPlayerId);
+    if (!targetSocketId) return;
+    io.to(targetSocketId).emit('voice:answer', { fromPlayerId: senderId, sdp });
+  });
+
+  socket.on('voice:ice_candidate', ({ roomCode, targetPlayerId, candidate }: {
+    roomCode: string;
+    targetPlayerId: string;
+    candidate: unknown;
+  }) => {
+    if (!isValidRoomCode(roomCode)) return;
+    const room = getRoom(roomCode);
+    if (!room) return;
+    const senderId = getPlayerIdBySocket(room, socket.id);
+    if (!senderId) return;
+    const targetSocketId = getSocketIdByPlayerId(room, targetPlayerId);
+    if (!targetSocketId) return;
+    io.to(targetSocketId).emit('voice:ice_candidate', { fromPlayerId: senderId, candidate });
   });
 
   socket.on('disconnect', () => {
