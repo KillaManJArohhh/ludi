@@ -283,6 +283,8 @@ export default function GameScreen({
             <button
               onClick={onToggleMute}
               title={voiceMuted ? 'Unmute microphone' : 'Mute microphone'}
+              aria-label={voiceMuted ? 'Unmute microphone' : 'Mute microphone'}
+              aria-pressed={voiceMuted}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold
                           transition-all border
                           ${voiceMuted

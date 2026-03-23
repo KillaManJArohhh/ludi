@@ -108,6 +108,10 @@ export default function OnlineGame() {
     setVoiceParticipants(state.participantCount);
   }, []);
 
+  const handleToggleMute = useCallback(() => {
+    voiceStateRef.current.toggleMute();
+  }, []);
+
   const roomCodeRef = useRef(roomCode);
   const playerIdRef = useRef(playerId);
   roomCodeRef.current = roomCode;
@@ -376,7 +380,7 @@ export default function OnlineGame() {
           onRematch={handleRematch}
           eloChange={eloChange}
           voiceMuted={voiceActive ? voiceMuted : undefined}
-          onToggleMute={voiceActive ? () => voiceStateRef.current.toggleMute() : undefined}
+          onToggleMute={voiceActive ? handleToggleMute : undefined}
           voiceParticipants={voiceActive ? voiceParticipants : undefined}
         />
         <ChatPanel
