@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import type { GameState, GameConfig, MoveOption, ChatMessage, Player } from '@ludi/shared';
 import { getSocket, connectSocket, disconnectSocket } from '../services/socketService.js';
+import { useVoiceChat } from '../hooks/useVoiceChat.js';
 import { useAuth } from '../context/AuthContext.js';
 import LobbyScreen from '../components/lobby/LobbyScreen.js';
 import WaitingRoom from '../components/lobby/WaitingRoom.js';
@@ -38,6 +39,34 @@ function clearSession() {
   sessionStorage.removeItem(SESSION_KEY);
 }
 
+interface VoiceState {
+  isMuted: boolean;
+  isActive: boolean;
+  participantCount: number;
+  toggleMute: () => void;
+}
+
+function VoiceManager({
+  roomCode,
+  playerId,
+  players,
+  onUpdate,
+}: {
+  roomCode: string;
+  playerId: string;
+  players: Player[];
+  onUpdate: (state: VoiceState) => void;
+}) {
+  const voice = useVoiceChat(roomCode, playerId, players);
+
+  useEffect(() => {
+    onUpdate(voice);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voice.isMuted, voice.isActive, voice.participantCount, onUpdate]);
+
+  return null;
+}
+
 export default function OnlineGame() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -61,6 +90,23 @@ export default function OnlineGame() {
   const [nameSet, setNameSet] = useState(!!user);
   const [reconnecting, setReconnecting] = useState(false);
   const [eloChange, setEloChange] = useState<number | null>(null);
+
+  const voiceStateRef = useRef<VoiceState>({
+    isMuted: false,
+    isActive: false,
+    participantCount: 0,
+    toggleMute: () => {},
+  });
+  const [voiceMuted, setVoiceMuted] = useState(false);
+  const [voiceActive, setVoiceActive] = useState(false);
+  const [voiceParticipants, setVoiceParticipants] = useState(0);
+
+  const handleVoiceUpdate = useCallback((state: VoiceState) => {
+    voiceStateRef.current = state;
+    setVoiceMuted(state.isMuted);
+    setVoiceActive(state.isActive);
+    setVoiceParticipants(state.participantCount);
+  }, []);
 
   const roomCodeRef = useRef(roomCode);
   const playerIdRef = useRef(playerId);
@@ -313,6 +359,12 @@ export default function OnlineGame() {
   if (phase === 'playing' && gameState) {
     return (
       <div className="relative">
+        <VoiceManager
+          roomCode={roomCode}
+          playerId={playerId}
+          players={gameState.players}
+          onUpdate={handleVoiceUpdate}
+        />
         <GameScreen
           state={gameState}
           onRoll={handleRoll}
@@ -323,6 +375,9 @@ export default function OnlineGame() {
           localPlayerId={playerId}
           onRematch={handleRematch}
           eloChange={eloChange}
+          voiceMuted={voiceActive ? voiceMuted : undefined}
+          onToggleMute={voiceActive ? () => voiceStateRef.current.toggleMute() : undefined}
+          voiceParticipants={voiceActive ? voiceParticipants : undefined}
         />
         <ChatPanel
           messages={chatMessages}

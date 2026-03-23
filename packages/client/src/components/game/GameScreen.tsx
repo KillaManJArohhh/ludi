@@ -31,6 +31,10 @@ interface GameScreenProps {
   onRematch?: () => void;
   eloChange?: number | null;
   isSpectator?: boolean;
+  // Voice chat (online only — omit to hide the mic button)
+  voiceMuted?: boolean;
+  onToggleMute?: () => void;
+  voiceParticipants?: number;
 }
 
 export default function GameScreen({
@@ -44,6 +48,9 @@ export default function GameScreen({
   onRematch,
   eloChange,
   isSpectator,
+  voiceMuted,
+  onToggleMute,
+  voiceParticipants,
 }: GameScreenProps) {
   const currentPlayer = getCurrentPlayer(state);
   const isLocalTurn = isSpectator ? false : (localPlayerId ? currentPlayer.id === localPlayerId : true);
@@ -270,7 +277,26 @@ export default function GameScreen({
     <div className="flex flex-col lg:flex-row gap-4 items-start justify-center p-4 min-h-screen relative">
       {/* Sound toggle */}
       <div className="absolute top-4 right-4 z-30">
-        <SoundToggle />
+        <div className="flex items-center gap-2">
+          <SoundToggle />
+          {onToggleMute && (
+            <button
+              onClick={onToggleMute}
+              title={voiceMuted ? 'Unmute microphone' : 'Mute microphone'}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold
+                          transition-all border
+                          ${voiceMuted
+                            ? 'bg-white/[0.06] text-[#f0ece4]/40 border-[#C4A35A]/15'
+                            : 'bg-[#009B3A]/20 text-[#86EFAC] border-[#009B3A]/30'
+                          }`}
+            >
+              {voiceMuted ? '🎙️✕' : '🎙️'}
+              {typeof voiceParticipants === 'number' && (
+                <span className="opacity-70">{voiceParticipants}</span>
+              )}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Spectator badge */}
