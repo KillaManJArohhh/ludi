@@ -64,12 +64,19 @@ function closePeer(remotePlayerId: string) {
   notifyCount();
 }
 
+// Named handler references for clean removal
+let handlerPeerJoined: ((data: { playerId: string }) => void) | null = null;
+let handlerOffer: ((data: { fromPlayerId: string; sdp: RTCSessionDescriptionInit }) => void) | null = null;
+let handlerAnswer: ((data: { fromPlayerId: string; sdp: RTCSessionDescriptionInit }) => void) | null = null;
+let handlerIceCandidate: ((data: { fromPlayerId: string; candidate: RTCIceCandidateInit }) => void) | null = null;
+let handlerPlayerLeft: ((data: { playerId: string }) => void) | null = null;
+
 function setupSocketListeners() {
   const socket = getSocket();
 
-  // Existing peer: new player joined voice — send them an offer
-  socket.on('voice:peer_joined', async ({ playerId }: { playerId: string }) => {
+  handlerPeerJoined = async ({ playerId }: { playerId: string }) => {
     if (!_active || playerId === localPlayerId) return;
+    closePeer(playerId); // Close any stale connection before creating a new one
     const pc = createPeerConnection(playerId);
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -78,11 +85,12 @@ function setupSocketListeners() {
       targetPlayerId: playerId,
       sdp: pc.localDescription,
     });
-  });
+  };
 
-  // New joiner: received an offer — respond with an answer
-  socket.on('voice:offer', async ({ fromPlayerId, sdp }: { fromPlayerId: string; sdp: RTCSessionDescriptionInit }) => {
+  handlerOffer = async ({ fromPlayerId, sdp }: { fromPlayerId: string; sdp: RTCSessionDescriptionInit }) => {
     if (!_active) return;
+    if (fromPlayerId === localPlayerId) return;
+    closePeer(fromPlayerId); // Close any stale connection before creating a new one
     const pc = createPeerConnection(fromPlayerId);
     await pc.setRemoteDescription(new RTCSessionDescription(sdp));
     const answer = await pc.createAnswer();
@@ -92,17 +100,15 @@ function setupSocketListeners() {
       targetPlayerId: fromPlayerId,
       sdp: pc.localDescription,
     });
-  });
+  };
 
-  // Received an answer to our offer
-  socket.on('voice:answer', async ({ fromPlayerId, sdp }: { fromPlayerId: string; sdp: RTCSessionDescriptionInit }) => {
+  handlerAnswer = async ({ fromPlayerId, sdp }: { fromPlayerId: string; sdp: RTCSessionDescriptionInit }) => {
     const entry = peers.get(fromPlayerId);
     if (!entry) return;
     await entry.connection.setRemoteDescription(new RTCSessionDescription(sdp));
-  });
+  };
 
-  // ICE candidate from a peer
-  socket.on('voice:ice_candidate', async ({ fromPlayerId, candidate }: { fromPlayerId: string; candidate: RTCIceCandidateInit }) => {
+  handlerIceCandidate = async ({ fromPlayerId, candidate }: { fromPlayerId: string; candidate: RTCIceCandidateInit }) => {
     const entry = peers.get(fromPlayerId);
     if (!entry) return;
     try {
@@ -110,26 +116,32 @@ function setupSocketListeners() {
     } catch {
       // Ignore stale candidates
     }
-  });
+  };
 
-  // Player left — close their peer connection
-  socket.on('room:player_left', ({ playerId }: { playerId: string }) => {
+  handlerPlayerLeft = ({ playerId }: { playerId: string }) => {
     closePeer(playerId);
-  });
+  };
+
+  socket.on('voice:peer_joined', handlerPeerJoined);
+  socket.on('voice:offer', handlerOffer);
+  socket.on('voice:answer', handlerAnswer);
+  socket.on('voice:ice_candidate', handlerIceCandidate);
+  socket.on('room:player_left', handlerPlayerLeft);
 }
 
 function teardownSocketListeners() {
   const socket = getSocket();
-  socket.off('voice:peer_joined');
-  socket.off('voice:offer');
-  socket.off('voice:answer');
-  socket.off('voice:ice_candidate');
-  socket.off('room:player_left');
+  if (handlerPeerJoined) { socket.off('voice:peer_joined', handlerPeerJoined); handlerPeerJoined = null; }
+  if (handlerOffer) { socket.off('voice:offer', handlerOffer); handlerOffer = null; }
+  if (handlerAnswer) { socket.off('voice:answer', handlerAnswer); handlerAnswer = null; }
+  if (handlerIceCandidate) { socket.off('voice:ice_candidate', handlerIceCandidate); handlerIceCandidate = null; }
+  if (handlerPlayerLeft) { socket.off('room:player_left', handlerPlayerLeft); handlerPlayerLeft = null; }
 }
 
 export const voiceChat = {
-  async connect(playerId: string, _remotePlayerIds: string[], roomCode: string): Promise<void> {
+  async connect(playerId: string, roomCode: string): Promise<void> {
     if (typeof RTCPeerConnection === 'undefined') return;
+    if (_active) return; // Already connected — prevent duplicate listeners
 
     localPlayerId = playerId;
     currentRoomCode = roomCode;
@@ -154,6 +166,7 @@ export const voiceChat = {
 
   disconnect(): void {
     _active = false;
+    muted = false; // Reset mute state for next session
     teardownSocketListeners();
     for (const id of Array.from(peers.keys())) {
       closePeer(id);
