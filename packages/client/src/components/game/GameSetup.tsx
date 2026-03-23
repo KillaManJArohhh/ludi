@@ -3,6 +3,8 @@ import type { GameConfig, Player, Color, AIDifficulty } from '@ludi/shared';
 import { PLAYER_COLORS, COLOR_HEX, createPlayers } from '@ludi/shared';
 import { useAuth } from '../../context/AuthContext.js';
 
+const GUEST_NAME_KEY = 'ludi-guest-name';
+
 interface GameSetupProps {
   onStart: (config: GameConfig, players: Player[]) => void;
   onBack: () => void;
@@ -10,17 +12,17 @@ interface GameSetupProps {
 
 export default function GameSetup({ onStart, onBack }: GameSetupProps) {
   const { user } = useAuth();
-  const savedGuestName = !user ? (localStorage.getItem('ludi-guest-name') || 'Player 1') : null;
   const [playerCount, setPlayerCount] = useState<2 | 4>(4);
   const [diceMode, setDiceMode] = useState<'single' | 'double'>('double');
   const [lockKillsLock, setLockKillsLock] = useState(false);
   const [teamSharing, setTeamSharing] = useState(false);
   const [turnTimer, setTurnTimer] = useState(0);
 
-  const [playerNames, setPlayerNames] = useState([
-    user?.displayName || savedGuestName || 'Player 1',
-    'Player 2', 'Player 3', 'Player 4',
-  ]);
+  const [playerNames, setPlayerNames] = useState<string[]>(() => {
+    const defaultName = user?.displayName
+      ?? (!user ? (localStorage.getItem(GUEST_NAME_KEY) || 'Player 1') : 'Player 1');
+    return [defaultName, 'Player 2', 'Player 3', 'Player 4'];
+  });
   const [aiSettings, setAiSettings] = useState<(AIDifficulty | null)[]>([null, null, null, null]);
 
   const handleStart = () => {
@@ -29,13 +31,13 @@ export default function GameSetup({ onStart, onBack }: GameSetupProps) {
 
     const players = basePlayers.map((p, i) => ({
       ...p,
-      name: playerNames[i] || p.name,
+      name: playerNames[i].trim() || p.name,
       isAI: aiSettings[i] !== null,
       aiDifficulty: aiSettings[i] || undefined,
     }));
 
     if (!user && aiSettings[0] === null && playerNames[0].trim()) {
-      localStorage.setItem('ludi-guest-name', playerNames[0].trim());
+      localStorage.setItem(GUEST_NAME_KEY, playerNames[0].trim());
     }
 
     onStart(config, players);
