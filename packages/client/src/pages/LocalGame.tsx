@@ -1,6 +1,6 @@
 import { useState, useReducer, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
-import type { GameConfig, Player, MoveOption, PlayerStats, GameState } from '@ludi/shared';
+import type { GameConfig, Player, MoveOption, PlayerStats, GameState, TurnPhase } from '@ludi/shared';
 import { gameReducer, createGameState, createPlayers } from '@ludi/shared';
 import GameSetup from '../components/game/GameSetup.js';
 import GameScreen from '../components/game/GameScreen.js';
@@ -14,7 +14,11 @@ function loadSavedGame(): GameState | null {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     const state = JSON.parse(raw) as GameState;
-    if (!state.players || !state.pieces) return null;
+    const required: (keyof GameState)[] = [
+      'config', 'players', 'pieces', 'currentPlayerIndex',
+      'turnPhase', 'winner', 'gatesOpened', 'turnStartedAt',
+    ];
+    if (required.some(k => !(k in state))) return null;
     return state;
   } catch {
     return null;
@@ -108,12 +112,16 @@ export default function LocalGame() {
   // Autosave: persist game state to localStorage while playing
   useEffect(() => {
     if (pageState !== 'playing') return;
+    const SAFE_PHASES: TurnPhase[] = ['waiting_for_roll', 'selecting_piece', 'selecting_split'];
+    if (!SAFE_PHASES.includes(gameState.turnPhase)) return;
     if (gameState.winner !== null) {
       localStorage.removeItem(SAVE_KEY);
+      setHasSave(false);
       return;
     }
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
+      setHasSave(true);
     } catch {
       // Silently ignore storage quota errors
     }
@@ -121,6 +129,7 @@ export default function LocalGame() {
 
   const handlePlayAgain = useCallback(() => {
     savedRef.current = false;
+    localStorage.removeItem(SAVE_KEY);
     dispatch({
       type: 'RESET',
       config: gameState.config,
