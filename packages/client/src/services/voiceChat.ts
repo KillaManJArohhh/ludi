@@ -126,7 +126,7 @@ function setupSocketListeners() {
   socket.on('voice:offer', handlerOffer);
   socket.on('voice:answer', handlerAnswer);
   socket.on('voice:ice_candidate', handlerIceCandidate);
-  socket.on('room:player_left', handlerPlayerLeft);
+  socket.on('player:disconnected', handlerPlayerLeft);
 }
 
 function teardownSocketListeners() {
@@ -135,7 +135,7 @@ function teardownSocketListeners() {
   if (handlerOffer) { socket.off('voice:offer', handlerOffer); handlerOffer = null; }
   if (handlerAnswer) { socket.off('voice:answer', handlerAnswer); handlerAnswer = null; }
   if (handlerIceCandidate) { socket.off('voice:ice_candidate', handlerIceCandidate); handlerIceCandidate = null; }
-  if (handlerPlayerLeft) { socket.off('room:player_left', handlerPlayerLeft); handlerPlayerLeft = null; }
+  if (handlerPlayerLeft) { socket.off('player:disconnected', handlerPlayerLeft); handlerPlayerLeft = null; }
 }
 
 export const voiceChat = {
