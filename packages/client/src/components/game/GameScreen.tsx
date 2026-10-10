@@ -35,6 +35,9 @@ interface GameScreenProps {
   voiceMuted?: boolean;
   onToggleMute?: () => void;
   voiceParticipants?: number;
+  // Online only — shows an "End Game" button to leave mid-game
+  onEndGame?: () => void;
+  authToken?: string | null;
 }
 
 export default function GameScreen({
@@ -46,11 +49,13 @@ export default function GameScreen({
   onHome,
   localPlayerId,
   onRematch,
+  onEndGame,
   eloChange,
   isSpectator,
   voiceMuted,
   onToggleMute,
   voiceParticipants,
+  authToken,
 }: GameScreenProps) {
   const currentPlayer = getCurrentPlayer(state);
   const isLocalTurn = isSpectator ? false : (localPlayerId ? currentPlayer.id === localPlayerId : true);
@@ -301,12 +306,24 @@ export default function GameScreen({
         </div>
       </div>
 
-      {/* Spectator badge */}
-      {isSpectator && (
-        <div className="absolute top-4 left-4 z-30 glass-panel rounded-lg px-3 py-1.5 border border-[#C4A35A]/30">
-          <span className="text-[#C4A35A] text-sm font-medium">Spectating</span>
-        </div>
-      )}
+      {/* Top-left: spectator badge or end game button */}
+      <div className="absolute top-4 left-4 z-30 flex items-center gap-2">
+        {isSpectator && (
+          <div className="glass-panel rounded-lg px-3 py-1.5 border border-[#C4A35A]/30">
+            <span className="text-[#C4A35A] text-sm font-medium">Spectating</span>
+          </div>
+        )}
+        {onEndGame && !state.winner && (
+          <button
+            onClick={onEndGame}
+            className="glass-panel rounded-lg px-3 py-1.5 border border-red-500/20
+                       text-red-400/60 text-xs font-medium hover:text-red-400
+                       hover:border-red-500/40 transition-colors"
+          >
+            End Game
+          </button>
+        )}
+      </div>
 
       {/* Left panel: player info (desktop) */}
       <div className="hidden lg:flex flex-col gap-2 w-48">
@@ -402,6 +419,9 @@ export default function GameScreen({
           onHome={onHome}
           onRematch={isSpectator ? undefined : onRematch}
           eloChange={eloChange}
+          allPlayers={state.players}
+          authToken={authToken}
+          localPlayerId={localPlayerId}
         />
       )}
     </div>

@@ -1,13 +1,27 @@
 import { useState } from 'react';
+import type { GameConfig } from '@ludi/shared';
+import CreateRoom from './CreateRoom.js';
 
 interface LobbyScreenProps {
-  onCreateRoom: () => void;
+  onCreateRoom: (config: GameConfig) => void;
   onJoinRoom: (code: string) => void;
   onBack: () => void;
 }
 
 export default function LobbyScreen({ onCreateRoom, onJoinRoom, onBack }: LobbyScreenProps) {
   const [joinCode, setJoinCode] = useState('');
+  const [showConfig, setShowConfig] = useState(false);
+
+  if (showConfig) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <CreateRoom
+          onCreated={onCreateRoom}
+          onBack={() => setShowConfig(false)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6">
@@ -17,7 +31,7 @@ export default function LobbyScreen({ onCreateRoom, onJoinRoom, onBack }: LobbyS
 
       <div className="flex flex-col gap-4 w-full max-w-xs">
         <button
-          onClick={onCreateRoom}
+          onClick={() => setShowConfig(true)}
           className="btn-primary py-4 rounded-xl text-white font-bold text-lg tracking-wide"
         >
           Create Room

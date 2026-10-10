@@ -190,10 +190,11 @@ export function checkGatesOpened(state: GameState): Record<Color, boolean> {
   return gatesOpened;
 }
 
-/** Convert piece ID like "red-0" to display name "Red 1" */
+/** Convert piece ID like "red-0" to display name "Red A" */
 export function pieceName(id: string): string {
   const [color, idx] = id.split('-');
-  return `${color[0].toUpperCase()}${color.slice(1)} ${parseInt(idx) + 1}`;
+  const letter = String.fromCharCode(65 + parseInt(idx)); // A, B, C, D
+  return `${color[0].toUpperCase()}${color.slice(1)} ${letter}`;
 }
 
 /** Generate all 16 pieces in base state */

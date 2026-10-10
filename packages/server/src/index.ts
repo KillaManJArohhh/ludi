@@ -8,6 +8,8 @@ import { setupChatHandler } from './chatHandler.js';
 import { setupReconnection } from './reconnection.js';
 import { getDb } from './db/index.js';
 import { verifyToken } from './auth.js';
+import { getFriendIds } from './db/friendRepository.js';
+import { findById } from './db/userRepository.js';
 
 const PORT = process.env.PORT || 4301;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
@@ -66,9 +68,54 @@ io.use((socket, next) => {
   next();
 });
 
+/** Track logged-in userId → Set of active socketIds */
+const onlineUsers = new Map<string, Set<string>>();
+
+function addOnlineSocket(userId: string, socketId: string): boolean {
+  let sockets = onlineUsers.get(userId);
+  if (!sockets) {
+    sockets = new Set();
+    onlineUsers.set(userId, sockets);
+  }
+  const isFirst = sockets.size === 0;
+  sockets.add(socketId);
+  return isFirst;
+}
+
+function removeOnlineSocket(userId: string, socketId: string): boolean {
+  const sockets = onlineUsers.get(userId);
+  if (!sockets) return false;
+  sockets.delete(socketId);
+  if (sockets.size === 0) {
+    onlineUsers.delete(userId);
+    return true;
+  }
+  return false;
+}
+
+function getOnlineSocketIds(userId: string): string[] {
+  return Array.from(onlineUsers.get(userId) ?? []);
+}
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
+
+  // Register user as online and notify their friends (only on first socket)
+  const connectedUserId: string | undefined = (socket.data as any).userId;
+  if (connectedUserId) {
+    const isFirst = addOnlineSocket(connectedUserId, socket.id);
+    if (isFirst) {
+      const user = findById(connectedUserId);
+      if (user) {
+        for (const friendId of getFriendIds(connectedUserId)) {
+          for (const friendSocketId of getOnlineSocketIds(friendId)) {
+            io.to(friendSocketId).emit('friend:online', { userId: connectedUserId, displayName: user.displayName });
+          }
+        }
+      }
+    }
+  }
 
   socket.on('room:create', ({ config, playerName }, callback) => {
     if (typeof callback !== 'function') return;
@@ -91,9 +138,22 @@ io.on('connection', (socket) => {
     }
     const name = sanitizeName(playerName);
     const playerId = randomUUID();
+    const existing = getRoom(roomCode);
+    if (!existing) {
+      callback({ error: 'Room not found' });
+      return;
+    }
+    if (existing.status !== 'waiting') {
+      callback({ error: 'Game already in progress' });
+      return;
+    }
+    if (existing.players.size >= existing.config.playerCount) {
+      callback({ error: 'Room is full' });
+      return;
+    }
     const room = joinRoom(roomCode, playerId, socket.id, name);
     if (!room) {
-      callback({ error: 'Room not found or full' });
+      callback({ error: 'Could not join room' });
       return;
     }
     socket.join(roomCode);
@@ -239,6 +299,18 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
     removeSpectatorBySocket(socket.id);
+
+    // Unregister this socket; notify friends only when the last socket goes away
+    if (connectedUserId) {
+      const isLast = removeOnlineSocket(connectedUserId, socket.id);
+      if (isLast) {
+        for (const friendId of getFriendIds(connectedUserId)) {
+          for (const friendSocketId of getOnlineSocketIds(friendId)) {
+            io.to(friendSocketId).emit('friend:offline', { userId: connectedUserId });
+          }
+        }
+      }
+    }
   });
 });
 

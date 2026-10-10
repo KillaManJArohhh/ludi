@@ -69,7 +69,7 @@ function VoiceManager({
 
 export default function OnlineGame() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [phase, setPhase] = useState<Phase>('lobby');
   const [roomCode, setRoomCode] = useState('');
   const [playerId, setPlayerId] = useState('');
@@ -90,6 +90,7 @@ export default function OnlineGame() {
   const [nameSet, setNameSet] = useState(!!user);
   const [reconnecting, setReconnecting] = useState(false);
   const [eloChange, setEloChange] = useState<number | null>(null);
+  const [friendToast, setFriendToast] = useState<string | null>(null);
 
   const voiceStateRef = useRef<VoiceState>({
     isMuted: false,
@@ -182,6 +183,11 @@ export default function OnlineGame() {
       setEloChange(data.eloChange);
     });
 
+    socket.on('friend:online', ({ displayName }: { displayName: string }) => {
+      setFriendToast(displayName);
+      setTimeout(() => setFriendToast(null), 4000);
+    });
+
     return () => {
       socket.off('reconnect:success');
       socket.off('reconnect:failed');
@@ -190,13 +196,15 @@ export default function OnlineGame() {
       socket.off('game:state_update');
       socket.off('chat:message');
       socket.off('game:stats_updated');
+      socket.off('friend:online');
       disconnectSocket();
     };
   }, []);
 
-  const handleCreateRoom = useCallback(() => {
+  const handleCreateRoom = useCallback((config: GameConfig) => {
+    setGameConfig(config);
     const socket = getSocket();
-    socket.emit('room:create', { config: gameConfig, playerName }, (response: { roomCode: string; playerId: string; players: Player[] }) => {
+    socket.emit('room:create', { config, playerName }, (response: { roomCode: string; playerId: string; players: Player[] }) => {
       setRoomCode(response.roomCode);
       setPlayerId(response.playerId);
       setIsHost(true);
@@ -204,7 +212,7 @@ export default function OnlineGame() {
       saveSession({ roomCode: response.roomCode, playerId: response.playerId, playerName });
       setPhase('waiting');
     });
-  }, [gameConfig, playerName]);
+  }, [playerName]);
 
   const handleJoinRoom = useCallback((code: string) => {
     const socket = getSocket();
@@ -341,6 +349,7 @@ export default function OnlineGame() {
           onJoinRoom={handleJoinRoom}
           onBack={() => navigate('/')}
         />
+
       </div>
     );
   }
@@ -363,6 +372,11 @@ export default function OnlineGame() {
   if (phase === 'playing' && gameState) {
     return (
       <div className="relative">
+        {friendToast && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 glass-panel rounded-lg px-5 py-3 border border-[#009B3A]/30 text-[#86EFAC] text-sm font-medium">
+            {friendToast} is online 🟢
+          </div>
+        )}
         <VoiceManager
           roomCode={roomCode}
           playerId={playerId}
@@ -378,10 +392,12 @@ export default function OnlineGame() {
           onHome={() => navigate('/')}
           localPlayerId={playerId}
           onRematch={handleRematch}
+          onEndGame={handleLeaveRoom}
           eloChange={eloChange}
           voiceMuted={voiceActive ? voiceMuted : undefined}
           onToggleMute={voiceActive ? handleToggleMute : undefined}
           voiceParticipants={voiceActive ? voiceParticipants : undefined}
+          authToken={token}
         />
         <ChatPanel
           messages={chatMessages}

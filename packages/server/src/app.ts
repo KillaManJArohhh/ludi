@@ -6,6 +6,12 @@ import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
 import { generateToken, verifyToken } from './auth.js';
 import { createUser, findByUsername, validatePassword, findById, findByEmail, setResetToken, findByResetToken, updatePassword, updateEmail, getLeaderboard } from './db/userRepository.js';
+import {
+  areFriends, removeFriend, getFriends, findUserByDisplayName,
+  getPendingRequestBetween, createFriendRequest, acceptFriendRequest,
+  rejectFriendRequest, cancelFriendRequest,
+  getIncomingFriendRequests, getOutgoingFriendRequests,
+} from './db/friendRepository.js';
 import { getUserStats, getRecentGames, recordImportedGame } from './db/gameResultRepository.js';
 import { sendPasswordResetEmail } from './email.js';
 
@@ -235,6 +241,125 @@ app.post('/api/stats/import', (req, res) => {
   }
 
   res.json({ imported });
+});
+
+// ─── Friends routes ───────────────────────────────────────
+
+function requireAuth(req: express.Request, res: express.Response): string | null {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.status(401).json({ error: 'Not authenticated' });
+    return null;
+  }
+  const payload = verifyToken(authHeader.slice(7));
+  if (!payload) {
+    res.status(401).json({ error: 'Invalid token' });
+    return null;
+  }
+  return payload.userId;
+}
+
+app.get('/api/friends', (req, res) => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  res.json({
+    friends: getFriends(userId),
+    incomingRequests: getIncomingFriendRequests(userId),
+    outgoingRequests: getOutgoingFriendRequests(userId),
+  });
+});
+
+app.post('/api/friends', (req, res) => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const { displayName } = req.body;
+  if (!displayName || typeof displayName !== 'string') {
+    res.status(400).json({ error: 'Display name required' });
+    return;
+  }
+
+  const target = findUserByDisplayName(displayName.trim());
+  if (!target) {
+    res.status(404).json({ error: `No account found for "${displayName.trim()}"` });
+    return;
+  }
+  if (target.id === userId) {
+    res.status(400).json({ error: 'Cannot add yourself' });
+    return;
+  }
+
+  // Already friends
+  if (areFriends(userId, target.id)) {
+    res.json({ relationship: 'friends', friend: { userId: target.id, displayName: target.displayName, eloRating: target.eloRating } });
+    return;
+  }
+
+  const existing = getPendingRequestBetween(userId, target.id);
+
+  // Target already sent us a request — auto-accept it
+  if (existing && existing.requesterUserId === target.id) {
+    const accepted = acceptFriendRequest(existing.id);
+    res.json({ relationship: 'friends', acceptedRequest: true, friend: { userId: target.id, displayName: target.displayName, eloRating: target.eloRating }, request: accepted });
+    return;
+  }
+
+  // We already have a pending outgoing request — return it as-is
+  if (existing && existing.requesterUserId === userId) {
+    res.status(202).json({ relationship: 'pending_outgoing', request: existing });
+    return;
+  }
+
+  // Create new outgoing request
+  const request = createFriendRequest(userId, target.id);
+  res.status(202).json({ relationship: 'pending_outgoing', request });
+});
+
+app.post('/api/friends/requests/:requestId/accept', (req, res) => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const accepted = acceptFriendRequest(req.params.requestId);
+  if (!accepted) {
+    res.status(404).json({ error: 'Request not found or already responded' });
+    return;
+  }
+  if (accepted.recipientUserId !== userId) {
+    res.status(403).json({ error: 'Not authorized to accept this request' });
+    return;
+  }
+  res.json({ relationship: 'friends', request: accepted });
+});
+
+app.post('/api/friends/requests/:requestId/reject', (req, res) => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const ok = rejectFriendRequest(req.params.requestId);
+  if (!ok) {
+    res.status(404).json({ error: 'Request not found or already responded' });
+    return;
+  }
+  res.json({ success: true });
+});
+
+app.delete('/api/friends/requests/:requestId', (req, res) => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const ok = cancelFriendRequest(req.params.requestId, userId);
+  if (!ok) {
+    res.status(404).json({ error: 'Request not found or not yours to cancel' });
+    return;
+  }
+  res.json({ success: true });
+});
+
+app.delete('/api/friends/:friendUserId', (req, res) => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  removeFriend(userId, req.params.friendUserId);
+  res.json({ success: true });
 });
 
 // Serve static client files in production

@@ -49,6 +49,38 @@ const migrations: Migration[] = [
       CREATE UNIQUE INDEX idx_users_email ON users(email) WHERE email IS NOT NULL;
     `,
   },
+  {
+    version: 3,
+    description: 'Create friends table',
+    sql: `
+      CREATE TABLE friends (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        friend_user_id TEXT NOT NULL REFERENCES users(id),
+        created_at INTEGER NOT NULL,
+        UNIQUE(user_id, friend_user_id)
+      );
+      CREATE INDEX idx_friends_user ON friends(user_id);
+      CREATE INDEX idx_friends_friend ON friends(friend_user_id);
+    `,
+  },
+  {
+    version: 4,
+    description: 'Create friend_requests table for consent-based friendship',
+    sql: `
+      CREATE TABLE friend_requests (
+        id TEXT PRIMARY KEY,
+        requester_user_id TEXT NOT NULL REFERENCES users(id),
+        recipient_user_id TEXT NOT NULL REFERENCES users(id),
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted','rejected','canceled')),
+        created_at INTEGER NOT NULL,
+        responded_at INTEGER,
+        UNIQUE(requester_user_id, recipient_user_id)
+      );
+      CREATE INDEX idx_friend_requests_requester ON friend_requests(requester_user_id);
+      CREATE INDEX idx_friend_requests_recipient ON friend_requests(recipient_user_id);
+    `,
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {
